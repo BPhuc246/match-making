@@ -1,0 +1,70 @@
+# Environment
+.env
+.env.local
+.env.*.local
+./server/.env
+./client/.env
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+*.secret.yml
+secret.yml
+secrets.yml
+**/secret.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Terrform
+.terraform/
+variables.tf
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+
+# Ansible - secrets & local files
+*.retry
+inventory.ini
+.vault_pass.txt
+*.pem
+*.key
+id_rsa*
+*_rsa
+secrets.yml
+ansible.log
+.venv/
+venv/
+
+
+# Certbot
+certbot/
+# Secrets
+*.pem
+*.key
