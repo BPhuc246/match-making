@@ -15,7 +15,6 @@ import com.bphuc246.service.JwtService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -68,7 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             return Arrays.stream(request.getCookies())
                     .filter(c -> c.getName().equals("access_token"))
-                    .map(Cookie::getValue)
+                    .map(cookie -> cookie.getValue())
                     .findFirst()
                     .orElse(null);
         }

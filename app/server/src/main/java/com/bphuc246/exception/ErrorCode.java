@@ -21,10 +21,10 @@ public enum ErrorCode {
     INVALID_EMAIL(1008,"Invalid email domain",HttpStatus.BAD_REQUEST),
     INVALID_USERNAME(1009,"Invalid ussername",HttpStatus.BAD_REQUEST),
     EMAIL_EXISTED(1010,"Email already existed",HttpStatus.BAD_REQUEST),
-    EMAIL_NOTFOUND(1011,"Email not exist",HttpStatus.NOT_FOUND),
-    PROBLEM_ALREADY_EXISTS(1012,"Problem existed", HttpStatus.BAD_REQUEST),
-    APPROACH_NOT_FOUND(1013,"Approach not found", HttpStatus.NOT_FOUND),
-    PROBLEM_NOT_FOUND(1014,"Problem not found", HttpStatus.NOT_FOUND);
+    EMAIL_NOTFOUND(1011,"Email not exist", HttpStatus.NOT_FOUND),
+    ALREADY_IN_QUEUE(1012, "Player already in queue", HttpStatus.CONFLICT),
+    QUEUE_ENTRY_NOT_FOUND(1013, "Queue entry not found", HttpStatus.NOT_FOUND),
+    INVALID_QUEUE_TYPE(1014, "Invalid queue type", HttpStatus.BAD_REQUEST);
 
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

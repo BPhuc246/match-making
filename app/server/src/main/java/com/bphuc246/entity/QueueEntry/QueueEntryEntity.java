@@ -1,4 +1,4 @@
-package com.bphuc246.entity.Player;
+package com.bphuc246.entity.QueueEntry;
 
 import java.time.LocalDateTime;
 
@@ -26,49 +26,34 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "players")
+@Table(name = "queue_entry")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class PlayerEntity {
+public class QueueEntryEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @Column(name = "username", nullable = false, unique = true, length = 20)
-    String username;
+    Long playerId;
+    
+    @Column(name = "joined_at", nullable = false)
+    LocalDateTime joinedAt;
 
-    @Column(name = "email", nullable = false, unique = true, length = 100)
-    String email;
-
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    String password;
-
-    @Builder.Default
-    String avatar = "";
+    QueueType queueType;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    AccountStatus accountStatus = AccountStatus.ACTIVE;
-
-    @Column(name = "last_login")
-    LocalDateTime lastLogin;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    LocalDateTime updatedAt;
+    QueueStatus queueStatus = QueueStatus.WAITING;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-        lastLogin = LocalDateTime.now();
+        joinedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-        lastLogin = LocalDateTime.now();
+        joinedAt = LocalDateTime.now();
     }
 }
