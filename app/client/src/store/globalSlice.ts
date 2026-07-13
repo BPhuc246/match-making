@@ -1,0 +1,92 @@
+import { createSlice, createAction } from "@reduxjs/toolkit";
+import type { UserInfo } from "../types/userInterface";
+
+export interface GlobalInitialState {
+  isQueuing: boolean;
+  queueMode: "casual" | "rank" | null;
+  queueStartTime: number | null;
+  queueElapsedTime: number; // in seconds
+  matchedRoomId: string | null;
+  leaderboard: UserInfo[];
+  leaderboardStatus: "idle" | "loading" | "succeeded" | "failed";
+  error: string | null;
+}
+
+const initialState: GlobalInitialState = {
+  isQueuing: false,
+  queueMode: null,
+  queueStartTime: null,
+  queueElapsedTime: 0,
+  matchedRoomId: null,
+  leaderboard: [],
+  leaderboardStatus: "idle",
+  error: null,
+};
+
+// Custom sync actions
+export const updateQueueTimer = createAction<number>("global/updateQueueTimer");
+export const setLeaderboard = createAction<UserInfo[]>("global/setLeaderboard");
+export const clearMatchedRoomId = createAction("global/clearMatchedRoomId");
+
+export const globalSlice = createSlice({
+  name: "global",
+  initialState,
+  reducers: {
+    incrementQueueTime: (state) => {
+      state.queueElapsedTime += 1;
+    },
+    resetQueueState: (state) => {
+      state.isQueuing = false;
+      state.queueMode = null;
+      state.queueStartTime = null;
+      state.queueElapsedTime = 0;
+    },
+  },
+  extraReducers(builder) {
+    // builder
+    //   .addCase(startQueue.pending, (state) => {
+    //     state.error = null;
+    //   })
+    //   .addCase(startQueue.fulfilled, (state, action) => {
+    //     state.isQueuing = true;
+    //     state.queueMode = action.meta.arg;
+    //     state.queueStartTime = Date.now();
+    //     state.queueElapsedTime = 0;
+    //     state.matchedRoomId = null;
+    //   })
+    //   .addCase(startQueue.rejected, (state, action) => {
+    //     state.isQueuing = false;
+    //     state.queueMode = null;
+    //     state.error = action.payload as string || "Failed to start matchmaking";
+    //   })
+
+    //   .addCase(leaveQueue.fulfilled, (state) => {
+    //     state.isQueuing = false;
+    //     state.queueMode = null;
+    //     state.queueStartTime = null;
+    //     state.queueElapsedTime = 0;
+    //   })
+
+    //   .addCase(checkQueueStatus.fulfilled, (state, action) => {
+    //     if (action.payload.matched) {
+    //       state.isQueuing = false;
+    //       state.queueMode = null;
+    //       state.queueStartTime = null;
+    //       state.matchedRoomId = action.payload.roomId;
+    //     }
+    //   })
+    //   .addCase(updateQueueTimer, (state, action) => {
+    //     state.queueElapsedTime = action.payload;
+    //   })
+    //   .addCase(setLeaderboard, (state, action) => {
+    //     state.leaderboard = action.payload;
+    //     state.leaderboardStatus = "succeeded";
+    //   })
+    //   .addCase(clearMatchedRoomId, (state) => {
+    //     state.matchedRoomId = null;
+    //   });
+  },
+});
+
+export const { incrementQueueTime, resetQueueState } = globalSlice.actions;
+export default globalSlice.reducer;
