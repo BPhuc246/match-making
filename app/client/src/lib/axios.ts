@@ -21,12 +21,17 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Never attempt to "refresh" the refresh call itself
+    if (originalRequest?.url?.includes("/auth/refresh")) {
+      isRefreshing = false;
+      refreshSubscribers = [];
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve) => {
-          refreshSubscribers.push(() =>
-            resolve(axiosInstance(originalRequest)),
-          );
+          refreshSubscribers.push(() => resolve(axiosInstance(originalRequest)));
         });
       }
 
@@ -42,7 +47,6 @@ axiosInstance.interceptors.response.use(
         console.error("Refresh failed:", refreshError);
         isRefreshing = false;
         refreshSubscribers = [];
-        window.location.href = "/login";
         return Promise.reject(refreshError);
       }
     }

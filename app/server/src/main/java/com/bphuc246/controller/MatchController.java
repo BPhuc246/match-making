@@ -4,13 +4,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import com.bphuc246.dto.ApiResponse;
-import com.bphuc246.dto.Request.JoinQueueRequest;
 import com.bphuc246.dto.Response.QueueJoinResponse;
 import com.bphuc246.entity.QueueEntry.QueueType;
+import com.bphuc246.service.MatchService;
 import com.bphuc246.service.PlayerService;
 import com.bphuc246.service.QueueEntryService;
 
-import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -18,21 +17,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
-@RequestMapping("/queue_entry")
+@RequestMapping("/match")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class QueueEntryController {
+public class MatchController {
 
-    QueueEntryService queueEntryService;
+    MatchService matchService;
     PlayerService playerService;
+    QueueEntryService queueEntryService;
 
-    @PostMapping("/match")
-    public ApiResponse<QueueJoinResponse> match(@Valid @RequestBody JoinQueueRequest request, Authentication authentication) {
-        Long playerId = resolvePlayerId(authentication);
-        QueueJoinResponse response = queueEntryService.joinQueue(playerId, request.queueType());
-        return ApiResponse.<QueueJoinResponse>builder().result(response).build();
-    }
-
+    // QueueEntryController
     @GetMapping("/status")
     public ApiResponse<QueueJoinResponse> status(@RequestParam QueueType queueType, Authentication authentication) {
         Long playerId = resolvePlayerId(authentication);
@@ -40,10 +34,10 @@ public class QueueEntryController {
         return ApiResponse.<QueueJoinResponse>builder().result(response).build();
     }
 
-    @DeleteMapping("/match")
-    public ApiResponse<Void> cancel(@RequestParam QueueType queueType, Authentication authentication) {
+    @DeleteMapping("/{matchId}/leave")
+    public ApiResponse<Void> leaveRoom(@PathVariable Long matchId, Authentication authentication) {
         Long playerId = resolvePlayerId(authentication);
-        queueEntryService.cancelQueue(playerId, queueType);
+        matchService.leaveRoom(matchId, playerId);
         return ApiResponse.<Void>builder().build();
     }
 

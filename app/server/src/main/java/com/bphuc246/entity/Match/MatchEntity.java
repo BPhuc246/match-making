@@ -1,6 +1,7 @@
-package com.bphuc246.entity.QueueEntry;
+package com.bphuc246.entity.Match;
 
 import java.time.LocalDateTime;
+
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,8 +10,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -26,37 +25,27 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "queue_entry")
+@Table(name = "match")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class QueueEntryEntity {
+public class MatchEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    Long playerId;
-    
-    @Column(name = "joined_at", nullable = false)
-    LocalDateTime joinedAt;
-
-    @Column(name = "match_id")
-    Long matchId;
-
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    QueueType queueType;
+    Long playerOneId;
+
+    @Column(nullable = false)
+    Long playerTwoId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    QueueStatus queueStatus = QueueStatus.WAITING;
+    MatchStatus status = MatchStatus.WAITING_FOR_PLAYERS;
 
-    @PrePersist
-    protected void onCreate() {
-        joinedAt = LocalDateTime.now();
-    }
+    Long winnerId;
 
-    @PreUpdate
-    protected void onUpdate() {
-        joinedAt = LocalDateTime.now();
-    }
+    LocalDateTime startedAt;
+
+    LocalDateTime endedAt;
 }

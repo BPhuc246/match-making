@@ -38,9 +38,9 @@ public class SecurityConfig {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-    private final String[] PUBLIC_ENDPOINTS = { "/auth/login", 
-    "/auth/register",
-    "/auth/refresh", "/auth/logout", "/user/**", "/problem/**" };
+    private final String[] PUBLIC_ENDPOINTS = { "/auth/login",
+        "/auth/register",
+        "/auth/refresh", "/auth/logout", "/user/**", "/problem/**", "/ws/**" };
 
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {

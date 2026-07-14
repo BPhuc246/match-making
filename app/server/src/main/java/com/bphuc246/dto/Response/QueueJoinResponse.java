@@ -1,15 +1,16 @@
 package com.bphuc246.dto.Response;
 
 public record QueueJoinResponse(
-        String status,        // "WAITING" or "MATCHED"
+        String status,
         Long queueEntryId,
-        Long opponentPlayerId // null if still waiting
+        Long opponentPlayerId,
+        Long matchId
 ) {
     public static QueueJoinResponse waiting(Long queueEntryId) {
-        return new QueueJoinResponse("WAITING", queueEntryId, null);
+        return new QueueJoinResponse("WAITING", queueEntryId, null, null);
     }
 
-    public static QueueJoinResponse matched(Long queueEntryId, Long opponentPlayerId) {
-        return new QueueJoinResponse("MATCHED", queueEntryId, opponentPlayerId);
+    public static QueueJoinResponse matched(Long queueEntryId, Long opponentPlayerId, Long matchId) {
+        return new QueueJoinResponse("MATCHED", queueEntryId, opponentPlayerId, matchId);
     }
 }

@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,7 +20,7 @@ public interface QueueEntryRepository extends JpaRepository<QueueEntryEntity, Lo
 
     Optional<QueueEntryEntity> findByPlayerIdAndQueueTypeAndQueueStatus(
             Long playerId, QueueType queueType, QueueStatus queueStatus);
-
+    Optional<QueueEntryEntity> findTopByPlayerIdAndQueueTypeOrderByJoinedAtDesc(Long playerId, QueueType queueType);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         SELECT q FROM QueueEntryEntity q
@@ -33,4 +34,14 @@ public interface QueueEntryRepository extends JpaRepository<QueueEntryEntity, Lo
             @Param("status") QueueStatus status,
             @Param("playerId") Long playerId,
             Pageable pageable);
+
+    // Cleanup: remove a specific player's queue record tied to a specific match once they leave the room
+    @Modifying
+    @Query("DELETE FROM QueueEntryEntity q WHERE q.playerId = :playerId AND q.matchId = :matchId")
+    int deleteByPlayerIdAndMatchId(@Param("playerId") Long playerId, @Param("matchId") Long matchId);
+
+    // Fallback cleanup: remove both entries for a match at once (e.g. when match ends/cancels entirely)
+    @Modifying
+    @Query("DELETE FROM QueueEntryEntity q WHERE q.matchId = :matchId")
+    int deleteByMatchId(@Param("matchId") Long matchId);
 }

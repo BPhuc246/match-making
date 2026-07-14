@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bphuc246.Repository.QueueEntryRepository;
 import com.bphuc246.dto.Response.QueueJoinResponse;
+import com.bphuc246.entity.Match.MatchEntity;
 import com.bphuc246.entity.QueueEntry.QueueEntryEntity;
 import com.bphuc246.entity.QueueEntry.QueueStatus;
 import com.bphuc246.entity.QueueEntry.QueueType;
@@ -26,21 +27,35 @@ import lombok.extern.slf4j.Slf4j;
 public class QueueEntryService {
 
     QueueEntryRepository queueEntryRepository;
+    MatchService matchService;
+    MatchNotificationService matchNotificationService;
+
+    // QueueEntryService
+    @Transactional
+    public QueueJoinResponse getStatus(Long playerId, QueueType queueType) {
+        QueueEntryEntity entry = queueEntryRepository
+                .findTopByPlayerIdAndQueueTypeOrderByJoinedAtDesc(playerId, queueType)
+                .orElseThrow(() -> new AppException(ErrorCode.QUEUE_ENTRY_NOT_FOUND));
+
+        if (entry.getQueueStatus() == QueueStatus.WAITING) {
+            return QueueJoinResponse.waiting(entry.getId());
+        }
+        if (entry.getQueueStatus() == QueueStatus.FINISHED && entry.getMatchId() != null) {
+            Long opponentId = matchService.getOpponentId(entry.getMatchId(), playerId);
+            return QueueJoinResponse.matched(entry.getId(), opponentId, entry.getMatchId());
+        }
+        return QueueJoinResponse.waiting(entry.getId()); // cancelled or edge case, adjust as needed
+    }
 
     @Transactional
     public QueueJoinResponse joinQueue(Long playerId, QueueType queueType) {
 
         queueEntryRepository
                 .findByPlayerIdAndQueueTypeAndQueueStatus(playerId, queueType, QueueStatus.WAITING)
-                .ifPresent(e -> {
-                    throw new AppException(ErrorCode.ALREADY_IN_QUEUE);
-                });
+                .ifPresent(e -> { throw new AppException(ErrorCode.ALREADY_IN_QUEUE); });
 
         QueueEntryEntity self = QueueEntryEntity.builder()
-                .playerId(playerId)
-                .queueType(queueType)
-                .queueStatus(QueueStatus.WAITING)
-                .build();
+                .playerId(playerId).queueType(queueType).queueStatus(QueueStatus.WAITING).build();
         self = queueEntryRepository.save(self);
         queueEntryRepository.flush();
 
@@ -48,18 +63,24 @@ public class QueueEntryService {
                 queueType, QueueStatus.WAITING, playerId, PageRequest.of(0, 1));
 
         if (opponents.isEmpty()) {
-            log.info("Player {} entered queue {}, entryId={}", playerId, queueType, self.getId());
             return QueueJoinResponse.waiting(self.getId());
         }
 
         QueueEntryEntity opponent = opponents.get(0);
-        self.setQueueStatus(QueueStatus.MATCHED);
-        opponent.setQueueStatus(QueueStatus.MATCHED);
+        MatchEntity match = matchService.createMatch(opponent.getPlayerId(), playerId);
+
+        self.setQueueStatus(QueueStatus.FINISHED);
+        self.setMatchId(match.getId());
+        opponent.setQueueStatus(QueueStatus.FINISHED);
+        opponent.setMatchId(match.getId());
         queueEntryRepository.save(self);
         queueEntryRepository.save(opponent);
 
-        log.info("Matched players {} and {} in queue {}", playerId, opponent.getPlayerId(), queueType);
-        return QueueJoinResponse.matched(self.getId(), opponent.getPlayerId());
+        // Push to BOTH players — the joiner gets it via return value too, but push keeps it consistent
+        matchNotificationService.notifyMatched(playerId, self.getId(), opponent.getPlayerId(), match.getId());
+        matchNotificationService.notifyMatched(opponent.getPlayerId(), opponent.getId(), playerId, match.getId());
+
+        return QueueJoinResponse.matched(self.getId(), opponent.getPlayerId(), match.getId());
     }
 
     @Transactional
