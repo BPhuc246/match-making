@@ -35,13 +35,21 @@ export default function AuthPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email.trim() || !formData.password.trim() || !formData.username.trim()) {
+    if (
+      !formData.email.trim() ||
+      !formData.password.trim() ||
+      (!formData.username.trim() && !isLoginTab)
+    ) {
       toast.error("All fields are requried");
       return;
-    } else if(formData.username.trim().length < 4 || formData.username.trim().length > 20) {
+    } else if (
+      (formData.username.trim().length < 4 ||
+        formData.username.trim().length > 20) &&
+      !isLoginTab
+    ) {
       toast.error("Username length range from 4 to 20");
       return;
-    } else if(formData.password.trim().length < 6) {
+    } else if (formData.password.trim().length < 6) {
       toast.error("Password length should be at least 6");
       return;
     }
@@ -174,7 +182,7 @@ export default function AuthPage() {
               </label>
               <div className="mt-2 relative">
                 <input
-                  type="text"
+                  type="password"
                   id="password"
                   name="password"
                   maxLength={18}
