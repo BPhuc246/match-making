@@ -1,9 +1,10 @@
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+import type { QueueJoinResponse } from "../types/queueInterface";
 
 let client: Client | null = null;
 
-export function connectSocket(onMatched: (payload: any) => void) {
+export function connectSocket(onMatched: (payload: QueueJoinResponse) => void) {
   if (client?.active) return client;
 
   client = new Client({

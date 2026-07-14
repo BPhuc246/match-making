@@ -6,6 +6,7 @@ import type {
   UserInfo,
 } from "../types/userInterface";
 import toast from "react-hot-toast";
+import { AxiosError } from "axios";
 
 export const fetch = createAsyncThunk<UserInfo, void>(
   "auth/fetchUser",
@@ -13,7 +14,7 @@ export const fetch = createAsyncThunk<UserInfo, void>(
     try {
       const res = await axiosInstance.get("/auth/me");
       return res.data.result;
-    } catch (error: any) {
+    } catch (_) {
       return rejectWithValue(null);
     }
   },
@@ -28,9 +29,14 @@ export const register = createAsyncThunk<
     const res = await axiosInstance.post("/auth/register", data);
     toast.success("Register successfully");
     return res.data.result;
-  } catch (error: any) {
-    toast.error(`${error.response?.data || "Register failed"}`);
-    return rejectWithValue(error.response?.data || "Error");
+  } catch (error: unknown) {
+    if (error instanceof AxiosError) {
+      toast.error(error.response?.data || "Register failed");
+      return rejectWithValue(error.response?.data || "Error");
+    }
+
+    toast.error("Unknown error");
+    return rejectWithValue("Unknown error");
   }
 });
 
@@ -43,9 +49,14 @@ export const login = createAsyncThunk<
     const res = await axiosInstance.post("/auth/login", data);
     toast.success("Login successfully");
     return res.data.result;
-  } catch (error: any) {
-    toast.error(`${error.response?.data || "Login failed"}`);
-    return rejectWithValue(error.response?.data || "Error");
+  } catch (error: unknown) {
+    if (error instanceof AxiosError) {
+      toast.error(error.response?.data || "Login failed");
+      return rejectWithValue(error.response?.data || "Error");
+    }
+
+    toast.error("Unknown error");
+    return rejectWithValue("Unknown error");
   }
 });
 
@@ -55,9 +66,14 @@ export const logout = createAsyncThunk<void, void, { rejectValue: string }>(
     try {
       await axiosInstance.post("/auth/logout");
       toast.success("Logout successfully");
-    } catch (error: any) {
-      toast.error(`${error.response?.data || "Logout failed"}`);
-      return rejectWithValue(error.response?.data);
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        toast.error(error.response?.data || "Logout failed");
+        return rejectWithValue(error.response?.data || "Error");
+      }
+
+      toast.error("Unknown error");
+      return rejectWithValue("Unknown error");
     }
   },
 );

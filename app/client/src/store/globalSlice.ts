@@ -12,7 +12,7 @@ export interface GlobalInitialState {
   queueMode: "casual" | "rank" | null;
   queueStartTime: number | null;
   queueElapsedTime: number; // in seconds
-  matchedRoomId: Number | null;
+  matchedRoomId: number | null;
   leaderboard: UserInfo[];
   leaderboardStatus: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;

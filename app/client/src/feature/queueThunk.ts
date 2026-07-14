@@ -6,6 +6,8 @@ import type {
   QueueMode,
 } from "../types/queueInterface";
 import { QUEUE_MODE_TO_TYPE } from "../types/queueInterface";
+import { AxiosError } from "axios";
+import toast from "react-hot-toast";
 
 // POST /queue_entry/match
 export const startQueue = createAsyncThunk<
@@ -22,11 +24,14 @@ export const startQueue = createAsyncThunk<
     );
 
     return res.data.result;
-  } catch (err: any) {
-    const message =
-      err?.response?.data?.message || "Failed to join matchmaking queue";
+  } catch (error: unknown) {
+    if (error instanceof AxiosError) {
+      toast.error(error.response?.data || "Failed to join matchmaking queue");
+      return rejectWithValue(error.response?.data || "Error");
+    }
 
-    return rejectWithValue(message);
+    toast.error("Unknown error");
+    return rejectWithValue("Unknown error");
   }
 });
 
@@ -43,10 +48,14 @@ export const checkQueueStatus = createAsyncThunk<
       { params: { queueType } },
     );
     return res.data.result;
-  } catch (err: any) {
-    const message =
-      err?.response?.data?.message || "Failed to check queue status";
-    return rejectWithValue(message);
+  } catch (error: unknown) {
+    if (error instanceof AxiosError) {
+      toast.error(error.response?.data || "Failed to check queue status");
+      return rejectWithValue(error.response?.data || "Error");
+    }
+
+    toast.error("Unknown error");
+    return rejectWithValue("Unknown error");
   }
 });
 
@@ -59,12 +68,13 @@ export const cancelQueue = createAsyncThunk<
   try {
     const queueType = QUEUE_MODE_TO_TYPE[mode];
     await axiosInstance.delete("/queue_entry/match", { params: { queueType } });
-  } catch (err: any) {
-    // 404 = nothing was waiting (e.g. already matched right before cancel) — not a real failure
-    if (err?.response?.status === 404) {
-      return;
+  } catch (error: unknown) {
+    if (error instanceof AxiosError) {
+      toast.error(error.response?.data || "Failed to cancel queue");
+      return rejectWithValue(error.response?.data || "Error");
     }
-    const message = err?.response?.data?.message || "Failed to cancel queue";
-    return rejectWithValue(message);
+
+    toast.error("Unknown error");
+    return rejectWithValue("Unknown error");
   }
 });
