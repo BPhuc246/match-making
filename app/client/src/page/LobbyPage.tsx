@@ -24,7 +24,7 @@ export default function LobbyPage() {
     leaderboardStatus,
   } = useSelector((state: RootState) => state.global);
 
-  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
   // 1. Fetch user + leaderboard on mount
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function LobbyPage() {
       .catch(() => {
         navigate("/auth");
       });
-    setLeaderboardLoading(false);
+    setLeaderboardLoading(true);
   }, [dispatch, navigate]);
 
   // 2. Open the socket once on mount
