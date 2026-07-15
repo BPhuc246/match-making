@@ -15,7 +15,6 @@ export default function QueueNotification() {
 
   useEffect(() => {
     if (!isQueuing || !queueStartTime) {
-      setElapsedTime(0);
       return;
     }
 
@@ -30,8 +29,13 @@ export default function QueueNotification() {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      setElapsedTime(0); // Safe to reset state inside the asynchronous cleanup function
+    };
   }, [isQueuing, queueStartTime]);
+
+  const displayElapsedTime = isQueuing && queueStartTime ? elapsedTime : 0;
 
   const handleCancel = () => {
     if (!queueMode) return;
@@ -78,7 +82,7 @@ export default function QueueNotification() {
           </span>
 
           <span className="text-xs font-mono font-bold text-blue-400">
-            {formatTime(elapsedTime)}
+            {formatTime(displayElapsedTime)}
           </span>
 
           <button

@@ -24,7 +24,7 @@ export default function LobbyPage() {
     leaderboardStatus,
   } = useSelector((state: RootState) => state.global);
 
-  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
 
   // 1. Fetch user + leaderboard on mount
   useEffect(() => {
@@ -36,16 +36,10 @@ export default function LobbyPage() {
       .catch(() => {
         navigate("/auth");
       });
-
-    setLeaderboardLoading(true);
-    // axiosInstance.get("/users/leaderboard")
-    //   .then((res) => dispatch(setLeaderboard(res.data)))
-    //   .catch((err) => console.error("Leaderboard fetch error", err))
-    //   .finally(() => setLeaderboardLoading(false));
+    setLeaderboardLoading(false);
   }, [dispatch, navigate]);
 
-  // 2. Open the socket once on mount — NOT tied to isQueuing/queueMode,
-  //    so it doesn't reconnect on every queue state change.
+  // 2. Open the socket once on mount
   useEffect(() => {
     connectSocket((payload) => {
       if (payload.status === "MATCHED") {
@@ -64,7 +58,7 @@ export default function LobbyPage() {
     return () => disconnectSocket();
   }, [dispatch]);
 
-  // 3. Redirect once matchedRoomId is set by the socket push
+  // 3. Redirect once matchedRoomId is set
   useEffect(() => {
     if (matchedRoomId) {
       navigate(`/room/${matchedRoomId}`);
@@ -90,9 +84,6 @@ export default function LobbyPage() {
             },
           });
         }
-        // If status is already "MATCHED" here (this player was the second joiner),
-        // globalSlice.startQueue.fulfilled should set matchedRoomId directly —
-        // no toast needed here since the socket push (or the reducer) handles navigation.
       })
       .catch((err) => {
         toast.error(err || "Matchmaking request failed");
@@ -241,3 +232,5 @@ export default function LobbyPage() {
     </div>
   );
 }
+
+// fix: detail in github

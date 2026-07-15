@@ -14,7 +14,7 @@ export const fetch = createAsyncThunk<UserInfo, void>(
     try {
       const res = await axiosInstance.get("/auth/me");
       return res.data.result;
-    } catch (_) {
+    } catch {
       return rejectWithValue(null);
     }
   },
