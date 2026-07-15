@@ -1,10 +1,10 @@
 import { Trophy, Star, Shield } from "lucide-react";
-import type { User } from "../types/userInterface";
+import type { UserInfo } from "../types/userInterface";
 
 interface LeaderboardListProps {
-  leaderboard: User[];
+  leaderboard: UserInfo[];
   loading: boolean;
-  currentUser?: User | null;
+  currentUser?: UserInfo | null;
 }
 
 export default function LeaderboardList({
@@ -29,7 +29,9 @@ export default function LeaderboardList({
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/20 p-8 text-center text-slate-400">
         <Star className="h-8 w-8 text-slate-500 animate-spin" />
-        <span className="mt-2 text-sm font-semibold">No rankings available</span>
+        <span className="mt-2 text-sm font-semibold">
+          No rankings available
+        </span>
       </div>
     );
   }
@@ -73,10 +75,12 @@ export default function LeaderboardList({
         };
 
         const podium = getPodiumStyle(rankIndex);
-        const winRate =
-          user.wins + user.losses + user.draws > 0
-            ? Math.round((user.wins / (user.wins + user.losses + user.draws)) * 100)
-            : 0;
+        // const winRate =
+        //   user.wins + user.losses + user.draws > 0
+        //     ? Math.round(
+        //         (user.wins / (user.wins + user.losses + user.draws)) * 100,
+        //       )
+        //     : 0;
 
         return (
           <div
@@ -89,7 +93,9 @@ export default function LeaderboardList({
                 {rankIndex <= 3 ? (
                   <Trophy className={`h-6 w-6 ${podium.medalColor}`} />
                 ) : (
-                  <span className="font-mono text-zinc-400 text-sm">#{rankIndex}</span>
+                  <span className="font-mono text-zinc-400 text-sm">
+                    #{rankIndex}
+                  </span>
                 )}
               </div>
 
@@ -112,7 +118,7 @@ export default function LeaderboardList({
                   </span>
                   <span className="text-[10px] text-zinc-600">•</span>
                   <span>
-                    {user.wins}W / {user.losses}L ({winRate}% WR)
+                    {/* {user.wins}W / {user.losses}L ({winRate}% WR) */}
                   </span>
                 </div>
               </div>
