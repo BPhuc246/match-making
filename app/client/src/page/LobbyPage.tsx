@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Swords, Trophy, History, Play } from "lucide-react";
 import toast from "react-hot-toast";
 import type { AppDispatch, RootState } from "../store";
 import PlayerProfileWidget from "../components/PlayerProfileWidget";
-import LeaderboardList from "../components/LeaderboardList";
 import { fetch } from "../feature/authThunk";
 import { startQueue } from "../feature/queueThunk";
 import { setMatched } from "../store/globalSlice";
@@ -16,15 +15,9 @@ export default function LobbyPage() {
   const navigate = useNavigate();
 
   const { user } = useSelector((state: RootState) => state.auth);
-  const {
-    isQueuing,
-    queueMode,
-    matchedRoomId,
-    leaderboard,
-    leaderboardStatus,
-  } = useSelector((state: RootState) => state.global);
-
-  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const { isQueuing, queueMode, matchedRoomId } = useSelector(
+    (state: RootState) => state.global,
+  );
 
   // 1. Fetch user + leaderboard on mount
   useEffect(() => {
@@ -36,7 +29,6 @@ export default function LobbyPage() {
       .catch(() => {
         navigate("/auth");
       });
-    setLeaderboardLoading(true);
   }, [dispatch, navigate]);
 
   // 2. Open the socket once on mount
@@ -221,11 +213,11 @@ export default function LobbyPage() {
               The highest scoring grandmasters currently competing in the Rock
               Paper Scissors matches.
             </p>
-            <LeaderboardList
+            {/* <LeaderboardList
               leaderboard={leaderboard}
               loading={leaderboardLoading && leaderboardStatus !== "succeeded"}
               currentUser={user}
-            />
+            /> */}
           </div>
         </div>
       </div>
