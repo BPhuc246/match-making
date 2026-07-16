@@ -58,8 +58,12 @@ export default function MatchPage() {
   useEffect(() => {
     if (currentMatch?.status === "FINISHED" && user) {
       const isP1 = user.id === currentMatch.playerOneId;
-      const myScore = isP1 ? currentMatch.playerOneScore : currentMatch.playerTwoScore;
-      const oppScore = isP1 ? currentMatch.playerTwoScore : currentMatch.playerOneScore;
+      const myScore = isP1
+        ? currentMatch.playerOneScore
+        : currentMatch.playerTwoScore;
+      const oppScore = isP1
+        ? currentMatch.playerTwoScore
+        : currentMatch.playerOneScore;
 
       if (currentMatch.winnerId === -1) {
         toast("It's a draw!", { icon: "🤝" });
@@ -78,17 +82,16 @@ export default function MatchPage() {
     user,
   ]);
 
-  // Reset localChoice when a new round starts (No setState in effect)
   useEffect(() => {
     if (!currentMatch) return;
 
-    const latestRoundNum = currentMatch.currentRoundNumber || 1;
-    
-    if (latestRoundNum > prevRoundRef.current) {
+    const currentRoundNum = currentMatch.currentRoundNumber || 1;
+
+    if (currentRoundNum > prevRoundRef.current) {
       setLocalChoice(null);
-      prevRoundRef.current = latestRoundNum;
+      prevRoundRef.current = currentRoundNum;
     }
-  }, [currentMatch?.currentRoundNumber]);
+  }, [currentMatch?.currentRoundNumber, currentMatch]);
 
   const handleSelectChoice = (choice: GameChoice) => {
     if (!matchId || choiceSubmitting) return;
@@ -144,8 +147,12 @@ export default function MatchPage() {
   }
 
   const isP1 = user?.id === currentMatch.playerOneId;
-  const myScore = isP1 ? currentMatch.playerOneScore : currentMatch.playerTwoScore;
-  const opponentScore = isP1 ? currentMatch.playerTwoScore : currentMatch.playerOneScore;
+  const myScore = isP1
+    ? currentMatch.playerOneScore
+    : currentMatch.playerTwoScore;
+  const opponentScore = isP1
+    ? currentMatch.playerTwoScore
+    : currentMatch.playerOneScore;
 
   const myData = isP1
     ? { id: currentMatch.playerOneId, username: user?.username || "You" }
@@ -163,19 +170,30 @@ export default function MatchPage() {
   const getChoiceStyles = (choice: GameChoice | null) => {
     if (!choice) return "";
     switch (choice) {
-      case "ROCK": return "border-orange-500 bg-orange-500/10 text-orange-400";
-      case "PAPER": return "border-emerald-500 bg-emerald-500/10 text-emerald-400";
-      case "SCISSORS": return "border-blue-500 bg-blue-500/10 text-blue-400";
-      default: return "border-white/10 bg-white/5";
+      case "ROCK":
+        return "border-orange-500 bg-orange-500/10 text-orange-400";
+      case "PAPER":
+        return "border-emerald-500 bg-emerald-500/10 text-emerald-400";
+      case "SCISSORS":
+        return "border-blue-500 bg-blue-500/10 text-blue-400";
+      default:
+        return "border-white/10 bg-white/5";
     }
   };
 
-  const renderChoiceIcon = (choice: GameChoice | null, sizeClass: string = "h-6 w-6") => {
+  const renderChoiceIcon = (
+    choice: GameChoice | null,
+    sizeClass: string = "h-6 w-6",
+  ) => {
     switch (choice) {
-      case "ROCK": return <Flame className={`${sizeClass} text-orange-400`} />;
-      case "PAPER": return <FileText className={`${sizeClass} text-emerald-400`} />;
-      case "SCISSORS": return <Scissors className={`${sizeClass} text-blue-400`} />;
-      default: return null;
+      case "ROCK":
+        return <Flame className={`${sizeClass} text-orange-400`} />;
+      case "PAPER":
+        return <FileText className={`${sizeClass} text-emerald-400`} />;
+      case "SCISSORS":
+        return <Scissors className={`${sizeClass} text-blue-400`} />;
+      default:
+        return null;
     }
   };
 
@@ -208,8 +226,9 @@ export default function MatchPage() {
           <div className="flex items-center gap-3">
             {[1, 2, 3].map((roundNum) => {
               const rHistory = currentMatch.rounds[roundNum - 1];
+
               let color = "bg-white/5 border-white/10 text-zinc-400";
-              let text = "";
+              let text = roundNum.toString();
 
               if (rHistory) {
                 if (rHistory.status === "PENDING") {
@@ -232,8 +251,6 @@ export default function MatchPage() {
               ) {
                 color =
                   "bg-blue-500/20 border-blue-500 animate-pulse shadow-lg shadow-blue-500/25 text-white";
-                text = roundNum.toString();
-              } else {
                 text = roundNum.toString();
               }
 
