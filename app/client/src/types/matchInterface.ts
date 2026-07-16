@@ -1,20 +1,41 @@
-import type { MatchResult } from "./globalInterface";
+export type GameChoice = "ROCK" | "PAPER" | "SCISSORS";
+export type RoundStatus = "PENDING" | "COMPLETED";
+export type MatchStatus =
+  | "WAITING_FOR_PLAYERS"
+  | "IN_PROGRESS"
+  | "FINISHED"
+  | "CANCELLED";
 
-export interface MatchHistory {
-  id: string;
-  opponentId: string;
-  opponentName: string;
-  mode: "casual" | "rank";
-  playerScore: number;
-  opponentScore: number;
-  result: MatchResult;
-  scoreChange: number;
-  date: string;
+export interface RoundResponse {
+  roundNumber: number;
+  myChoice: GameChoice | null;       // always visible to the requester
+  opponentChoice: GameChoice | null; // null until round is COMPLETED
+  winnerId: number | null;           // -1 = draw, null = round still pending
+  status: RoundStatus;
 }
 
-export interface MatchmakingState {
-  isQueuing: boolean;
-  queueMode: "casual" | "rank" | null;
-  queueStartTime: number | null;
-  matchedRoomId: string | null;
+export interface MatchStateResponse {
+  matchId: number;
+  playerOneId: number;
+  playerTwoId: number;
+  status: MatchStatus;
+  winnerId: number | null; // -1 = draw, null = match not finished yet
+  playerOneScore: number;
+  playerTwoScore: number;
+  currentRoundNumber: number;
+  rounds: RoundResponse[];
 }
+
+export interface MatchSliceState {
+  currentMatch: MatchStateResponse | null;
+  status: "idle" | "loading" | "succeeded" | "failed";
+  choiceSubmitting: boolean;
+  error: string | null;
+}
+
+export type MatchPhase =
+  | "preparing"
+  | "playing"
+  | "round_ended"
+  | "finished"
+  | "forfeited";

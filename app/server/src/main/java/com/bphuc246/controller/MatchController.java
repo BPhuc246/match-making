@@ -4,12 +4,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import com.bphuc246.dto.ApiResponse;
+import com.bphuc246.dto.Request.SubmitChoiceRequest;
+import com.bphuc246.dto.Response.MatchStateResponse;
 import com.bphuc246.dto.Response.QueueJoinResponse;
 import com.bphuc246.entity.QueueEntry.QueueType;
 import com.bphuc246.service.MatchService;
 import com.bphuc246.service.PlayerService;
 import com.bphuc246.service.QueueEntryService;
+import com.bphuc246.service.RoundService;
 
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -25,6 +29,7 @@ public class MatchController {
     MatchService matchService;
     PlayerService playerService;
     QueueEntryService queueEntryService;
+    RoundService roundService;
 
     // QueueEntryController
     @GetMapping("/status")
@@ -47,5 +52,21 @@ public class MatchController {
         }
         String email = authentication.getName();
         return playerService.getUsers(email).getId();
+    }
+
+    @GetMapping("/{matchId}")
+    public ApiResponse<MatchStateResponse> getMatch(@PathVariable Long matchId, Authentication authentication) {
+        Long playerId = resolvePlayerId(authentication);
+        return ApiResponse.<MatchStateResponse>builder()
+                .result(roundService.getMatchState(matchId, playerId)).build();
+    }
+
+    @PostMapping("/{matchId}/choice")
+    public ApiResponse<MatchStateResponse> submitChoice(@PathVariable Long matchId,
+                                                        @Valid @RequestBody SubmitChoiceRequest request,
+                                                        Authentication authentication) {
+        Long playerId = resolvePlayerId(authentication);
+        return ApiResponse.<MatchStateResponse>builder()
+                .result(roundService.submitChoice(matchId, playerId, request.choice())).build();
     }
 }

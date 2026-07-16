@@ -26,7 +26,10 @@ public enum ErrorCode {
     QUEUE_ENTRY_NOT_FOUND(1013, "Queue entry not found", HttpStatus.NOT_FOUND),
     INVALID_QUEUE_TYPE(1014, "Invalid queue type", HttpStatus.BAD_REQUEST),
     MATCH_NOT_FOUND(1015, "Match not found", HttpStatus.NOT_FOUND),
-    NOT_MATCH_PARTICIPANT(1015, "You are not a participant of this match", HttpStatus.NOT_FOUND);
+    NOT_MATCH_PARTICIPANT(1016, "You are not a participant of this match", HttpStatus.NOT_FOUND),
+    ROUND_NOT_FOUND(1017, "Round not found", HttpStatus.NOT_FOUND),
+    CHOICE_ALREADY_SUBMITTED(1018, "Choice already submitted for this round", HttpStatus.CONFLICT),
+    MATCH_NOT_IN_PROGRESS(1019, "Match is not in progress", HttpStatus.BAD_REQUEST);
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code;

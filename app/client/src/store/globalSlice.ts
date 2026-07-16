@@ -12,7 +12,7 @@ export interface GlobalInitialState {
   queueMode: "casual" | "rank" | null;
   queueStartTime: number | null;
   queueElapsedTime: number; // in seconds
-  matchedRoomId: number | null;
+  matchedMatchId: number | null;
   leaderboard: UserInfo[];
   leaderboardStatus: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
@@ -25,7 +25,7 @@ const initialState: GlobalInitialState = {
   queueMode: null,
   queueStartTime: null,
   queueElapsedTime: 0,
-  matchedRoomId: null,
+  matchedMatchId: null,
   leaderboard: [],
   leaderboardStatus: "idle",
   error: null,
@@ -34,7 +34,7 @@ const initialState: GlobalInitialState = {
 // Custom sync actions
 export const updateQueueTimer = createAction<number>("global/updateQueueTimer");
 export const setLeaderboard = createAction<UserInfo[]>("global/setLeaderboard");
-export const clearMatchedRoomId = createAction("global/clearMatchedRoomId");
+export const clearMatchedMatchId = createAction("global/clearMatchedMatchId");
 
 export const globalSlice = createSlice({
   name: "global",
@@ -59,20 +59,20 @@ export const globalSlice = createSlice({
         if (action.payload.status === "MATCHED") {
           state.isQueuing = false;
           state.queueMode = null;
-          state.matchedRoomId = action.payload.matchId;
+          state.matchedMatchId = action.payload.matchId;
         } else {
           state.isQueuing = true;
           state.queueMode = action.meta.arg;
           state.queueStartTime = Date.now();
           state.queueElapsedTime = 0;
-          state.matchedRoomId = null;
+          state.matchedMatchId = null;
         }
       })
       .addCase(setMatched, (state, action) => {
         state.isQueuing = false;
         state.queueMode = null;
         state.queueStartTime = null;
-        state.matchedRoomId = action.payload.matchId;
+        state.matchedMatchId = action.payload.matchId;
       })
       .addCase(startQueue.rejected, (state, action) => {
         state.isQueuing = false;
@@ -92,7 +92,7 @@ export const globalSlice = createSlice({
           state.isQueuing = false;
           state.queueMode = null;
           state.queueStartTime = null;
-          state.matchedRoomId = action.payload.matchId;
+          state.matchedMatchId = action.payload.matchId;
         }
       })
       .addCase(updateQueueTimer, (state, action) => {
@@ -102,8 +102,8 @@ export const globalSlice = createSlice({
         state.leaderboard = action.payload;
         state.leaderboardStatus = "succeeded";
       })
-      .addCase(clearMatchedRoomId, (state) => {
-        state.matchedRoomId = null;
+      .addCase(clearMatchedMatchId, (state) => {
+        state.matchedMatchId = null;
       });
   },
 });

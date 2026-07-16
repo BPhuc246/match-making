@@ -23,6 +23,7 @@ public class MatchService {
 
     MatchRepository matchRepository;
     QueueEntryRepository queueEntryRepository;
+    RoundService roundService;
 
     public Long getOpponentId(Long matchId, Long playerId) {
         MatchEntity match = matchRepository.findById(matchId)
@@ -41,12 +42,10 @@ public class MatchService {
     @Transactional
     public MatchEntity createMatch(Long playerOneId, Long playerTwoId) {
         MatchEntity match = MatchEntity.builder()
-                .playerOneId(playerOneId)
-                .playerTwoId(playerTwoId)
-                .status(MatchStatus.WAITING_FOR_PLAYERS)
-                .build();
+                .playerOneId(playerOneId).playerTwoId(playerTwoId)
+                .status(MatchStatus.WAITING_FOR_PLAYERS).build();
         match = matchRepository.save(match);
-        log.info("Match {} created for players {} vs {}", match.getId(), playerOneId, playerTwoId);
+        roundService.startFirstRound(match.getId());
         return match;
     }
 
@@ -84,7 +83,7 @@ public class MatchService {
         matchRepository.save(match);
     }
 
-    private MatchEntity getActiveMatch(Long matchId) {
+    MatchEntity getActiveMatch(Long matchId) {
         return matchRepository.findById(matchId)
                 .orElseThrow(() -> new AppException(ErrorCode.MATCH_NOT_FOUND));
     }
@@ -110,6 +109,24 @@ public class MatchService {
         }
 
         log.info("Player {} left match {}", playerId, matchId);
+    }
+
+        // Add to MatchService
+
+
+    @Transactional
+    public void markInProgress(MatchEntity match) {
+        match.setStatus(MatchStatus.IN_PROGRESS);
+        match.setStartedAt(java.time.LocalDateTime.now());
+        matchRepository.save(match);
+    }
+
+    @Transactional
+    public void finishMatch(MatchEntity match, Long winnerId) {
+        match.setStatus(MatchStatus.FINISHED);
+        match.setWinnerId(winnerId);
+        match.setEndedAt(java.time.LocalDateTime.now());
+        matchRepository.save(match);
     }
 }
 

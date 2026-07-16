@@ -1,14 +1,14 @@
 import { configureStore } from "@reduxjs/toolkit";
 import globalSlice from "./globalSlice";
 import authSlice from "./authSlice";
-// import roomSlice from "./roomSlice";
 import queueSlice from "./queueSlice";
+import matchSlice from "./matchSlice";
 
 export const store = configureStore({
   reducer: {
     global: globalSlice,
     auth: authSlice,
-    // room: roomSlice,
+    match: matchSlice,
     queue: queueSlice,
   },
 });
