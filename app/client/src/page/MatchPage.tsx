@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -33,6 +33,10 @@ export default function MatchPage() {
 
   const [localChoice, setLocalChoice] = useState<GameChoice | null>(null);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
+
+  // Track previous round number to detect round changes without setState in effect
+  const prevRoundRef = useRef<number>(0);
+
   // 1. Initial fetch + subscribe
   useEffect(() => {
     if (!matchId) return;
@@ -50,16 +54,12 @@ export default function MatchPage() {
     dispatch(clearMatchedMatchId());
   }, [dispatch]);
 
-  // 4. Toast on match finish (fixed exhaustive-deps)
+  // 4. Toast on match finish
   useEffect(() => {
     if (currentMatch?.status === "FINISHED" && user) {
       const isP1 = user.id === currentMatch.playerOneId;
-      const myScore = isP1
-        ? currentMatch.playerOneScore
-        : currentMatch.playerTwoScore;
-      const oppScore = isP1
-        ? currentMatch.playerTwoScore
-        : currentMatch.playerOneScore;
+      const myScore = isP1 ? currentMatch.playerOneScore : currentMatch.playerTwoScore;
+      const oppScore = isP1 ? currentMatch.playerTwoScore : currentMatch.playerOneScore;
 
       if (currentMatch.winnerId === -1) {
         toast("It's a draw!", { icon: "🤝" });
@@ -78,15 +78,17 @@ export default function MatchPage() {
     user,
   ]);
 
-  const latestRound = currentMatch?.rounds[currentMatch.rounds.length - 1];
-  const shouldResetChoice =
-    latestRound?.status === "PENDING" && !latestRound.myChoice;
-
+  // Reset localChoice when a new round starts (No setState in effect)
   useEffect(() => {
-    if (shouldResetChoice) {
+    if (!currentMatch) return;
+
+    const latestRoundNum = currentMatch.currentRoundNumber || 1;
+    
+    if (latestRoundNum > prevRoundRef.current) {
       setLocalChoice(null);
+      prevRoundRef.current = latestRoundNum;
     }
-  }, [shouldResetChoice]);
+  }, [currentMatch?.currentRoundNumber]);
 
   const handleSelectChoice = (choice: GameChoice) => {
     if (!matchId || choiceSubmitting) return;
@@ -142,14 +144,9 @@ export default function MatchPage() {
   }
 
   const isP1 = user?.id === currentMatch.playerOneId;
-  const myScore = isP1
-    ? currentMatch.playerOneScore
-    : currentMatch.playerTwoScore;
-  const opponentScore = isP1
-    ? currentMatch.playerTwoScore
-    : currentMatch.playerOneScore;
+  const myScore = isP1 ? currentMatch.playerOneScore : currentMatch.playerTwoScore;
+  const opponentScore = isP1 ? currentMatch.playerTwoScore : currentMatch.playerOneScore;
 
-  // Determine my and opponent data
   const myData = isP1
     ? { id: currentMatch.playerOneId, username: user?.username || "You" }
     : { id: currentMatch.playerTwoId, username: user?.username || "You" };
@@ -158,37 +155,27 @@ export default function MatchPage() {
     ? { id: currentMatch.playerTwoId, username: "Opponent", score: 0 }
     : { id: currentMatch.playerOneId, username: "Opponent", score: 0 };
 
-  // Extract current choices
+  const latestRound = currentMatch.rounds[currentMatch.rounds.length - 1];
+
   const myChoice = latestRound?.myChoice || null;
   const opponentChoice = latestRound?.opponentChoice || null;
 
   const getChoiceStyles = (choice: GameChoice | null) => {
     if (!choice) return "";
     switch (choice) {
-      case "ROCK":
-        return "border-orange-500 bg-orange-500/10 text-orange-400";
-      case "PAPER":
-        return "border-emerald-500 bg-emerald-500/10 text-emerald-400";
-      case "SCISSORS":
-        return "border-blue-500 bg-blue-500/10 text-blue-400";
-      default:
-        return "border-white/10 bg-white/5";
+      case "ROCK": return "border-orange-500 bg-orange-500/10 text-orange-400";
+      case "PAPER": return "border-emerald-500 bg-emerald-500/10 text-emerald-400";
+      case "SCISSORS": return "border-blue-500 bg-blue-500/10 text-blue-400";
+      default: return "border-white/10 bg-white/5";
     }
   };
 
-  const renderChoiceIcon = (
-    choice: GameChoice | null,
-    sizeClass: string = "h-6 w-6",
-  ) => {
+  const renderChoiceIcon = (choice: GameChoice | null, sizeClass: string = "h-6 w-6") => {
     switch (choice) {
-      case "ROCK":
-        return <Flame className={`${sizeClass} text-orange-400`} />;
-      case "PAPER":
-        return <FileText className={`${sizeClass} text-emerald-400`} />;
-      case "SCISSORS":
-        return <Scissors className={`${sizeClass} text-blue-400`} />;
-      default:
-        return null;
+      case "ROCK": return <Flame className={`${sizeClass} text-orange-400`} />;
+      case "PAPER": return <FileText className={`${sizeClass} text-emerald-400`} />;
+      case "SCISSORS": return <Scissors className={`${sizeClass} text-blue-400`} />;
+      default: return null;
     }
   };
 
