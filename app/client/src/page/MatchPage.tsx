@@ -31,11 +31,8 @@ export default function MatchPage() {
   );
   const { user } = useSelector((state: RootState) => state.auth);
 
-// ... other imports and component setup remain the same
-
   const [localChoice, setLocalChoice] = useState<GameChoice | null>(null);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
-
   // 1. Initial fetch + subscribe
   useEffect(() => {
     if (!matchId) return;
@@ -48,31 +45,21 @@ export default function MatchPage() {
     return () => unsubscribeFromMatch();
   }, [matchId, dispatch]);
 
-  // 2. Reset local selection when a new round starts (fixed)
-  useEffect(() => {
-    const latestRound = currentMatch?.rounds[currentMatch.rounds.length - 1];
-
-    // Only reset if we're in a fresh pending round with no choice yet
-    if (
-      latestRound?.status === "PENDING" &&
-      !latestRound.myChoice &&
-      localChoice !== null // prevent unnecessary setState
-    ) {
-      setLocalChoice(null);
-    }
-  }, [currentMatch, localChoice]); // added localChoice to deps to satisfy exhaustive-deps
-
   // 3. Clear matched flag
   useEffect(() => {
     dispatch(clearMatchedMatchId());
   }, [dispatch]);
 
-  // 4. Toast on match finish
+  // 4. Toast on match finish (fixed exhaustive-deps)
   useEffect(() => {
     if (currentMatch?.status === "FINISHED" && user) {
       const isP1 = user.id === currentMatch.playerOneId;
-      const myScore = isP1 ? currentMatch.playerOneScore : currentMatch.playerTwoScore;
-      const oppScore = isP1 ? currentMatch.playerTwoScore : currentMatch.playerOneScore;
+      const myScore = isP1
+        ? currentMatch.playerOneScore
+        : currentMatch.playerTwoScore;
+      const oppScore = isP1
+        ? currentMatch.playerTwoScore
+        : currentMatch.playerOneScore;
 
       if (currentMatch.winnerId === -1) {
         toast("It's a draw!", { icon: "🤝" });
@@ -82,9 +69,24 @@ export default function MatchPage() {
         toast.error(`You lost. ${myScore} - ${oppScore}`, { icon: "💔" });
       }
     }
-  }, [currentMatch?.status, user]);
+  }, [
+    currentMatch?.status,
+    currentMatch?.winnerId,
+    currentMatch?.playerOneScore,
+    currentMatch?.playerTwoScore,
+    currentMatch?.playerOneId,
+    user,
+  ]);
 
-  // ... rest of your handlers and JSX stay exactly the same
+  const latestRound = currentMatch?.rounds[currentMatch.rounds.length - 1];
+  const shouldResetChoice =
+    latestRound?.status === "PENDING" && !latestRound.myChoice;
+
+  useEffect(() => {
+    if (shouldResetChoice) {
+      setLocalChoice(null);
+    }
+  }, [shouldResetChoice]);
 
   const handleSelectChoice = (choice: GameChoice) => {
     if (!matchId || choiceSubmitting) return;
@@ -155,8 +157,6 @@ export default function MatchPage() {
   const opponentData = isP1
     ? { id: currentMatch.playerTwoId, username: "Opponent", score: 0 }
     : { id: currentMatch.playerOneId, username: "Opponent", score: 0 };
-
-  const latestRound = currentMatch.rounds[currentMatch.rounds.length - 1];
 
   // Extract current choices
   const myChoice = latestRound?.myChoice || null;
