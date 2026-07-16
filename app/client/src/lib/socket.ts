@@ -1,15 +1,20 @@
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+import type { MatchStateResponse } from "../types/matchInterface";
 
 let client: Client | null = null;
 let matchSubscription: { unsubscribe: () => void } | null = null;
 
-export function connectSocket(onMatched: (payload: any) => void) {
+export function connectSocket(
+  onMatched: (payload: MatchStateResponse) => void,
+) {
   if (client?.active) return client;
 
   client = new Client({
     webSocketFactory: () =>
-      new SockJS("http://localhost:8000/api/ws", null, { transports: ["websocket"] }),
+      new SockJS("http://localhost:8000/api/ws", null, {
+        transports: ["websocket"],
+      }),
     reconnectDelay: 3000,
     onConnect: () => {
       client!.subscribe("/user/queue/match", (message) => {
@@ -22,7 +27,10 @@ export function connectSocket(onMatched: (payload: any) => void) {
   return client;
 }
 
-export function subscribeToMatch(matchId: string, onUpdate: (payload: any) => void) {
+export function subscribeToMatch(
+  matchId: string,
+  onUpdate: (payload: MatchStateResponse) => void,
+) {
   if (!client?.active) return;
   matchSubscription?.unsubscribe();
   matchSubscription = client.subscribe(`/topic/match/${matchId}`, (message) => {
