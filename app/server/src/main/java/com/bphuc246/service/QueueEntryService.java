@@ -29,6 +29,7 @@ public class QueueEntryService {
     QueueEntryRepository queueEntryRepository;
     MatchService matchService;
     MatchNotificationService matchNotificationService;
+    RoundService roundService;
 
     // QueueEntryService
     @Transactional
@@ -67,7 +68,10 @@ public class QueueEntryService {
         }
 
         QueueEntryEntity opponent = opponents.get(0);
+
+        // Two explicit calls instead of MatchService reaching into RoundService internally
         MatchEntity match = matchService.createMatch(opponent.getPlayerId(), playerId);
+        roundService.startFirstRound(match.getId());
 
         self.setQueueStatus(QueueStatus.FINISHED);
         self.setMatchId(match.getId());
@@ -76,13 +80,11 @@ public class QueueEntryService {
         queueEntryRepository.save(self);
         queueEntryRepository.save(opponent);
 
-        // Push to BOTH players — the joiner gets it via return value too, but push keeps it consistent
         matchNotificationService.notifyMatched(playerId, self.getId(), opponent.getPlayerId(), match.getId());
         matchNotificationService.notifyMatched(opponent.getPlayerId(), opponent.getId(), playerId, match.getId());
 
         return QueueJoinResponse.matched(self.getId(), opponent.getPlayerId(), match.getId());
     }
-
     @Transactional
     public void cancelQueue(Long playerId, QueueType queueType) {
         QueueEntryEntity entry = queueEntryRepository
