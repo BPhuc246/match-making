@@ -1,3 +1,5 @@
+import type { MatchHistory } from "./matchInterface";
+
 export interface UserInfo {
   id: number;
   username: string;
@@ -5,6 +7,7 @@ export interface UserInfo {
   avatar: string;
   rank: string;
   score: number;
+  matches?: MatchHistory[];
 }
 
 export interface RegisterInput {
@@ -21,5 +24,5 @@ export interface LoginInput {
 export interface AuthInitialState {
   user: UserInfo | null;
   status: "idle" | "rejected" | "succeeded" | "pending";
-  error: string | null,
+  error: string | null;
 }

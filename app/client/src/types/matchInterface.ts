@@ -1,3 +1,5 @@
+import type { QueueMode } from "./queueInterface";
+
 export type GameChoice = "ROCK" | "PAPER" | "SCISSORS";
 export type RoundStatus = "PENDING" | "COMPLETED";
 export type MatchStatus =
@@ -33,9 +35,23 @@ export interface MatchSliceState {
   error: string | null;
 }
 
+
 export type MatchPhase =
   | "preparing"
   | "playing"
   | "round_ended"
   | "finished"
   | "forfeited";
+
+export type MatchResult = "win" | "lose" | "draw";
+
+export interface MatchHistory {
+  id: string;
+  opponentName: string;
+  mode: QueueMode; // "casual" | "rank" — reuse the single source of truth
+  playerScore: number;
+  opponentScore: number;
+  result: MatchResult;
+  scoreChange: number;
+  date: string; // ISO string
+}

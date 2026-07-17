@@ -1,12 +1,13 @@
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+import type { QueueJoinResponse } from "../types/queueInterface";
 import type { MatchStateResponse } from "../types/matchInterface";
 
 let client: Client | null = null;
 let matchSubscription: { unsubscribe: () => void } | null = null;
 
 export function connectSocket(
-  onMatched: (payload: MatchStateResponse) => void,
+  onMatched: (payload: QueueJoinResponse) => void,
 ) {
   if (client?.active) return client;
 

@@ -65,7 +65,6 @@ export default function MatchHistoryTable({ matches }: MatchHistoryTableProps) {
                   key={match.id}
                   className="hover:bg-white/5 transition-colors text-sm text-zinc-300"
                 >
-                  {/* Result Tag */}
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${
@@ -82,7 +81,6 @@ export default function MatchHistoryTable({ matches }: MatchHistoryTableProps) {
                     </span>
                   </td>
 
-                  {/* Mode */}
                   <td className="whitespace-nowrap px-6 py-4 text-xs font-bold uppercase tracking-wider">
                     <span
                       className={`px-1.5 py-0.5 rounded border ${
@@ -95,7 +93,6 @@ export default function MatchHistoryTable({ matches }: MatchHistoryTableProps) {
                     </span>
                   </td>
 
-                  {/* Opponent */}
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-white">
@@ -104,12 +101,10 @@ export default function MatchHistoryTable({ matches }: MatchHistoryTableProps) {
                     </div>
                   </td>
 
-                  {/* Score */}
                   <td className="whitespace-nowrap px-6 py-4 text-center font-mono font-bold text-zinc-200">
                     {match.playerScore} - {match.opponentScore}
                   </td>
 
-                  {/* Rating Change */}
                   <td className={`whitespace-nowrap px-6 py-4 text-right font-mono font-bold ${
                     match.mode === "casual"
                       ? "text-zinc-500"
@@ -128,7 +123,6 @@ export default function MatchHistoryTable({ matches }: MatchHistoryTableProps) {
                           : `${match.scoreChange}`}
                   </td>
 
-                  {/* Date */}
                   <td className="whitespace-nowrap px-6 py-4 text-right text-xs text-zinc-500 font-normal">
                     {formatDate(match.date)}
                   </td>
