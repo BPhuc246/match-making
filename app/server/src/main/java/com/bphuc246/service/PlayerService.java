@@ -31,5 +31,11 @@ public class PlayerService {
             .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
     }
 
+    public String getEmailById(Long playerId) {
+        return playerRepository.findById(playerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED))
+                .getEmail();
+    }
+
     
 }

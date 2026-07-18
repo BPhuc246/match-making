@@ -10,7 +10,10 @@ import MatchHistoryTable from "../components/MatchHistoryTable";
 import { fetch } from "../feature/authThunk";
 import { startQueue } from "../feature/queueThunk";
 import { setMatched } from "../store/globalSlice";
-import { connectSocket, disconnectSocket } from "../lib/socket";
+import {
+  connectSocket,
+  unsubscribeFromMatchmaking,
+} from "../lib/socket";
 
 export default function LobbyPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -36,22 +39,12 @@ export default function LobbyPage() {
   // 2. Open the socket once on mount, listen for a match being found
   useEffect(() => {
     connectSocket((payload) => {
-      // payload is a QueueJoinResponse: status is "WAITING" | "MATCHED" —
-      // "FINISHED" doesn't exist on this type, that was checking the wrong field.
       if (payload.status === "MATCHED") {
         dispatch(setMatched(payload));
-        toast.success("Match found! Ready up!", {
-          icon: "⚔️",
-          style: {
-            background: "#0f172a",
-            color: "#f8fafc",
-            border: "1px solid #10b981",
-          },
-        });
+        toast.success("Match found! Ready up!", { icon: "⚔️" /* ... */ });
       }
     });
-
-    return () => disconnectSocket();
+    return () => unsubscribeFromMatchmaking();
   }, [dispatch]);
 
   useEffect(() => {

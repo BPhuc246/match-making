@@ -4,6 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import type { AppDispatch, RootState } from "../store";
 import { logout } from "../feature/authThunk";
+import { disconnectSocket } from "../lib/socket";
 
 export default function Navbar() {
   const dispatch = useDispatch<AppDispatch>();
@@ -14,6 +15,7 @@ export default function Navbar() {
     dispatch(logout())
       .unwrap()
       .then(() => {
+        disconnectSocket();
         toast.success("Logged out successfully");
         navigate("/auth");
       });
@@ -23,7 +25,10 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#121214]/60 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br from-indigo-500 to-purple-600 border border-white/20 shadow-lg shadow-purple-500/20">
             <Swords className="h-5 w-5 text-white" />
           </div>

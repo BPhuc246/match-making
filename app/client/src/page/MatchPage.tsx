@@ -8,18 +8,23 @@ import {
   Flame,
   LogOut,
   Scissors,
-  Trophy,
   Sparkles,
+  Clock,
+  Home,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import type { GameChoice } from "../types/matchInterface";
 import type { AppDispatch, RootState } from "../store";
 import { fetchMatch, submitChoice, leaveMatch } from "../feature/matchThunk";
-import { subscribeToMatch, unsubscribeFromMatch } from "../lib/socket";
 import { matchStateUpdated } from "../store/matchSlice";
 import { clearMatchedMatchId } from "../store/globalSlice";
-import { AnimatePresence } from "motion/react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  subscribeToRoundUpdates,
+  unsubscribeFromRoundUpdates,
+} from "../lib/socket";
+
+const ROUND_TIME_SECONDS = 30;
 
 export default function MatchPage() {
   const { matchId } = useParams<{ matchId: string }>();
@@ -33,28 +38,71 @@ export default function MatchPage() {
 
   const [localChoice, setLocalChoice] = useState<GameChoice | null>(null);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(ROUND_TIME_SECONDS);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  // Track previous round number to detect round changes without setState in effect
   const prevRoundRef = useRef<number>(0);
+  const timerRef = useRef<number | null>(null);
 
-  // 1. Initial fetch + subscribe
+  const getErrorMessage = (err: any): string => {
+    if (!err) return "An unknown error occurred";
+    if (typeof err === "string") return err;
+    return err.message || err.code || "Failed to submit choice";
+  };
+
+  // Timer logic
+  useEffect(() => {
+    if (!isTimerRunning) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isTimerRunning]);
+
+  // Start / Reset timer when new round starts
+  useEffect(() => {
+    if (!currentMatch) return;
+
+    const currentRoundNum = currentMatch.currentRoundNumber || 1;
+    const latestRound = currentMatch.rounds.at(-1);
+
+    console.log(
+      `[Match] Round changed: ${prevRoundRef.current} → ${currentRoundNum}`,
+      latestRound,
+    );
+    if (currentRoundNum > prevRoundRef.current) {
+      setLocalChoice(null);
+      setTimeLeft(ROUND_TIME_SECONDS);
+      setIsTimerRunning(latestRound?.status === "PENDING");
+      prevRoundRef.current = currentRoundNum;
+    } else if (latestRound?.status !== "PENDING") {
+      setIsTimerRunning(false);
+    }
+  }, [currentMatch]);
+
   useEffect(() => {
     if (!matchId) return;
-
     dispatch(fetchMatch(matchId));
-    subscribeToMatch(matchId, (payload) => {
-      dispatch(matchStateUpdated(payload));
+    subscribeToRoundUpdates((payload) => {
+      if (String(payload.matchId) === matchId) {
+        dispatch(matchStateUpdated(payload));
+      }
     });
 
-    return () => unsubscribeFromMatch();
+    return () => unsubscribeFromRoundUpdates();
   }, [matchId, dispatch]);
-
-  // 3. Clear matched flag
+  // Clear matched flag
   useEffect(() => {
     dispatch(clearMatchedMatchId());
   }, [dispatch]);
 
-  // 4. Toast on match finish
+  // Toast on match finish
   useEffect(() => {
     if (currentMatch?.status === "FINISHED" && user) {
       const isP1 = user.id === currentMatch.playerOneId;
@@ -73,39 +121,34 @@ export default function MatchPage() {
         toast.error(`You lost. ${myScore} - ${oppScore}`, { icon: "💔" });
       }
     }
-  }, [
-    currentMatch?.status,
-    currentMatch?.winnerId,
-    currentMatch?.playerOneScore,
-    currentMatch?.playerTwoScore,
-    currentMatch?.playerOneId,
-    user,
-  ]);
+  }, [currentMatch, user]);
 
+  // Reset local choice on new round
   useEffect(() => {
     if (!currentMatch) return;
-
     const currentRoundNum = currentMatch.currentRoundNumber || 1;
-
     if (currentRoundNum > prevRoundRef.current) {
       setLocalChoice(null);
       prevRoundRef.current = currentRoundNum;
     }
-  }, [currentMatch?.currentRoundNumber, currentMatch]);
+  }, [currentMatch?.currentRoundNumber]);
 
   const handleSelectChoice = (choice: GameChoice) => {
     if (!matchId || choiceSubmitting) return;
+
     const latestRound = currentMatch?.rounds[currentMatch.rounds.length - 1];
     if (latestRound?.status !== "PENDING" || latestRound.myChoice) return;
 
     setLocalChoice(choice);
+
     dispatch(submitChoice({ matchId, choice }))
       .unwrap()
       .then(() => {
-        toast.success(`Locked in: ${choice}!`, { duration: 1500 });
+        toast.success(`Locked in: ${choice}!`, { duration: 1200 });
       })
       .catch((err) => {
-        toast.error(err || "Failed to lock choice");
+        const msg = getErrorMessage(err);
+        toast.error(msg);
         setLocalChoice(null);
       });
   };
@@ -131,11 +174,15 @@ export default function MatchPage() {
     );
   }
 
+  // Safe error display
   if (error || !currentMatch) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
         <AlertOctagon className="h-10 w-10 text-rose-500 animate-bounce" />
-        <h3 className="text-lg font-bold text-white">Lobby Connection Lost</h3>
+        <h3 className="text-lg font-bold text-white">Connection Issue</h3>
+        <p className="text-sm text-zinc-400 max-w-xs">
+          {getErrorMessage(error)}
+        </p>
         <button
           onClick={() => navigate("/")}
           className="rounded-lg bg-white/5 border border-white/10 px-4 py-2 text-xs font-bold uppercase text-zinc-300 hover:bg-white/10"
@@ -154,21 +201,12 @@ export default function MatchPage() {
     ? currentMatch.playerTwoScore
     : currentMatch.playerOneScore;
 
-  const myData = isP1
-    ? { id: currentMatch.playerOneId, username: user?.username || "You" }
-    : { id: currentMatch.playerTwoId, username: user?.username || "You" };
-
-  const opponentData = isP1
-    ? { id: currentMatch.playerTwoId, username: "Opponent", score: 0 }
-    : { id: currentMatch.playerOneId, username: "Opponent", score: 0 };
-
   const latestRound = currentMatch.rounds[currentMatch.rounds.length - 1];
-
   const myChoice = latestRound?.myChoice || null;
   const opponentChoice = latestRound?.opponentChoice || null;
 
   const getChoiceStyles = (choice: GameChoice | null) => {
-    if (!choice) return "";
+    if (!choice) return "border-white/10 bg-white/5";
     switch (choice) {
       case "ROCK":
         return "border-orange-500 bg-orange-500/10 text-orange-400";
@@ -176,41 +214,79 @@ export default function MatchPage() {
         return "border-emerald-500 bg-emerald-500/10 text-emerald-400";
       case "SCISSORS":
         return "border-blue-500 bg-blue-500/10 text-blue-400";
-      default:
-        return "border-white/10 bg-white/5";
     }
   };
 
-  const renderChoiceIcon = (
-    choice: GameChoice | null,
-    sizeClass: string = "h-6 w-6",
-  ) => {
+  const renderChoiceIcon = (choice: GameChoice | null, size = "h-8 w-8") => {
     switch (choice) {
       case "ROCK":
-        return <Flame className={`${sizeClass} text-orange-400`} />;
+        return <Flame className={`${size} text-orange-400`} />;
       case "PAPER":
-        return <FileText className={`${sizeClass} text-emerald-400`} />;
+        return <FileText className={`${size} text-emerald-400`} />;
       case "SCISSORS":
-        return <Scissors className={`${sizeClass} text-blue-400`} />;
+        return <Scissors className={`${size} text-blue-400`} />;
       default:
         return null;
     }
   };
 
+  // Final Result Screen
+  if (currentMatch.status === "FINISHED") {
+    const isWinner = currentMatch.winnerId === user?.id;
+    const isDraw = currentMatch.winnerId === -1;
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-screen gap-8 text-center px-4">
+        <div
+          className={`text-8xl ${isWinner ? "text-yellow-400" : isDraw ? "text-zinc-400" : "text-rose-500"}`}
+        >
+          {isWinner ? "🏆" : isDraw ? "🤝" : "💔"}
+        </div>
+
+        <h2 className="text-4xl font-black">
+          {isWinner ? "VICTORY" : isDraw ? "DRAW" : "DEFEAT"}
+        </h2>
+
+        <p className="text-2xl font-mono text-zinc-400">
+          {myScore} - {opponentScore}
+        </p>
+
+        <div className="flex gap-4 mt-8">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-3 px-8 py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold text-lg"
+          >
+            <Home className="h-6 w-6" />
+            Return to Hub
+          </button>
+          <button
+            onClick={() => window.location.reload()} // or navigate to queue
+            className="flex items-center gap-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold text-lg"
+          >
+            Play Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isPending = latestRound?.status === "PENDING";
+  const canChoose = isPending && !myChoice && !choiceSubmitting;
+  const bothLocked = myChoice && opponentChoice;
+
   return (
-    <div className="flex-1 flex flex-col justify-between gap-8 py-4 relative z-10">
-      {/* Background design glow */}
+    <div className="flex-1 flex flex-col justify-between gap-8 py-4 relative z-10 min-h-screen">
+      {/* Background glow */}
       <div className="absolute top-1/2 left-1/2 h-112.5 w-112.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
 
-      {/* 1. ROOM HEADER (Top bar with series overview & leave button) */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+      {/* HEADER */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-4 px-2">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-black uppercase tracking-wider text-blue-400">
-              Battle Room
+              BATTLE ROOM
             </span>
-            <span className="rounded bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-400">
-              {"NORMAL"}
+            <span className="rounded bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-zinc-400">
+              NORMAL
             </span>
           </div>
           <span className="font-mono text-[10px] text-zinc-500">
@@ -218,425 +294,283 @@ export default function MatchPage() {
           </span>
         </div>
 
-        {/* TOP MIDDLE ROUND TOKENS */}
-        <div className="flex flex-col items-center gap-1.5">
+        {/* Round Indicators */}
+        <div className="flex flex-col items-center gap-1">
           <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
-            Round Status
+            ROUND
           </span>
-          <div className="flex items-center gap-3">
-            {[1, 2, 3].map((roundNum) => {
-              const rHistory = currentMatch.rounds[roundNum - 1];
+          <div className="flex gap-2">
+            {[1, 2, 3].map((n) => {
+              const round = currentMatch.rounds[n - 1];
+              let cls = "bg-white/5 border-white/10 text-zinc-400";
+              let txt = n.toString();
 
-              let color = "bg-white/5 border-white/10 text-zinc-400";
-              let text = roundNum.toString();
-
-              if (rHistory) {
-                if (rHistory.status === "PENDING") {
-                  color =
-                    "bg-amber-500/20 border-amber-500/40 shadow-lg shadow-amber-500/10 text-amber-400";
-                  text = "D";
-                } else if (Number(rHistory.winnerId) === user?.id) {
-                  color =
-                    "bg-green-500/20 border-green-500/40 shadow-lg shadow-green-500/10 text-green-400";
-                  text = "W";
+              if (round?.status === "COMPLETED") {
+                if (round.winnerId === -1) {
+                  cls = "bg-amber-500/20 border-amber-500 text-amber-400";
+                  txt = "D";
+                } else if (round.winnerId === user?.id) {
+                  cls = "bg-green-500/20 border-green-500 text-green-400";
+                  txt = "W";
                 } else {
-                  color =
-                    "bg-rose-500/20 border-rose-500/40 shadow-lg shadow-rose-500/10 text-rose-400";
-                  text = "L";
+                  cls = "bg-rose-500/20 border-rose-500 text-rose-400";
+                  txt = "L";
                 }
-              } else if (
-                currentMatch.currentRoundNumber === roundNum &&
-                currentMatch.status !== "FINISHED" &&
-                currentMatch.status !== "CANCELLED"
-              ) {
-                color =
-                  "bg-blue-500/20 border-blue-500 animate-pulse shadow-lg shadow-blue-500/25 text-white";
-                text = roundNum.toString();
+              } else if (round?.status === "PENDING") {
+                cls = "bg-blue-500/30 border-blue-500 text-white animate-pulse";
               }
 
               return (
                 <div
-                  key={roundNum}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border font-mono text-xs font-extrabold transition-all duration-300 ${color}`}
+                  key={n}
+                  className={`h-9 w-9 flex items-center justify-center rounded-full border font-mono text-sm font-bold transition-all ${cls}`}
                 >
-                  {text}
+                  {txt}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Abandon Match Button */}
-        {currentMatch.status === "WAITING_FOR_PLAYERS" ||
-        currentMatch.status === "IN_PROGRESS" ||
-        currentMatch.status === "FINISHED" ? (
-          <button
-            onClick={() => setShowForfeitModal(true)}
-            id="forfeit-match-button"
-            className="flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Abandon
-          </button>
-        ) : (
-          <button
-            onClick={handleLeaveRoom}
-            id="leave-room-button"
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-white/10 transition-all cursor-pointer"
-          >
-            Return to Hub
-          </button>
-        )}
+        <button
+          onClick={() => setShowForfeitModal(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-rose-400 hover:bg-rose-500/20"
+        >
+          <LogOut className="h-4 w-4" />
+          ABANDON
+        </button>
       </div>
 
-      {/* 2. DUAL PLAYER SPLIT VIEWPORT */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch flex-1">
-        {/* PLAYER 1 (Left Panel: YOU) */}
-        <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 h-2 bg-blue-500 w-1/3" />
+      {/* SPLIT VIEW */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 px-2">
+        {/* YOU */}
+        <div className="flex flex-col rounded-3xl border border-white/10 bg-white/5 backdrop-blur p-6 relative">
+          <div className="absolute top-0 left-0 h-1.5 bg-blue-500 w-2/5 rounded-r" />
 
-          {/* Player stats */}
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
-                Player 1 (You)
-              </span>
-              <span className="font-mono text-xs text-zinc-400">RP: 1200</span>
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-xs font-black uppercase tracking-widest text-zinc-400">
+                YOU
+              </div>
+              <h3 className="text-2xl font-bold text-white mt-1">
+                {user?.username}
+              </h3>
             </div>
-            <h3 className="text-lg font-bold text-white mt-1 flex items-center gap-2">
-              {myData?.username}
-              <span className="rounded bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase text-blue-400">
-                LOBBY
-              </span>
-            </h3>
-
-            {/* Score */}
-            <div className="mt-4 flex items-center gap-2 bg-white/5 border border-white/10 p-3 rounded-xl max-w-max">
-              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wide">
-                Rounds Won:
-              </span>
-              <span className="font-mono text-lg font-extrabold text-blue-400">
+            <div className="text-right">
+              <div className="text-xs text-zinc-400">SCORE</div>
+              <div className="text-3xl font-mono font-black text-blue-400">
                 {myScore}
-              </span>
+              </div>
             </div>
           </div>
 
-          {/* Visual Choice Representation during phases */}
-          <div className="my-8 flex items-center justify-center min-h-40">
-            {currentMatch.status === "WAITING_FOR_PLAYERS" && (
-              <div className="flex flex-col items-center text-center gap-2 text-zinc-500">
-                <span className="text-xs font-bold uppercase tracking-wider animate-pulse">
-                  Arming Combat systems...
-                </span>
-              </div>
-            )}
+          {/* Choice Display */}
+          <div className="flex-1 flex items-center justify-center my-8 min-h-45">
+            <AnimatePresence mode="wait">
+              {myChoice ? (
+                <motion.div
+                  key={`mine-${currentMatch.currentRoundNumber}`}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className={`flex flex-col items-center gap-4 p-8 rounded-2xl border-2 ${getChoiceStyles(myChoice)}`}
+                >
+                  {renderChoiceIcon(myChoice, "h-16 w-16")}
+                  <span className="font-black uppercase tracking-widest">
+                    LOCKED
+                  </span>
+                </motion.div>
+              ) : (
+                <div
+                  key={`mine-empty-${currentMatch.currentRoundNumber}`}
+                  className="text-center text-zinc-500"
+                >
+                  <div className="text-6xl mb-4 opacity-30">🤜</div>
+                  <p className="font-mono uppercase tracking-widest text-sm">
+                    Choose your move
+                  </p>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
 
-            {currentMatch.status === "IN_PROGRESS" && (
-              <AnimatePresence mode="wait">
-                {myChoice ? (
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className={`flex flex-col items-center gap-3 border p-5 rounded-2xl ${getChoiceStyles(myChoice)}`}
-                  >
-                    {renderChoiceIcon(myChoice)}
-                    <span className="text-xs font-black uppercase tracking-wider">
-                      Option Locked
-                    </span>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex flex-col items-center text-center gap-2 text-zinc-500 border border-dashed border-white/10 p-8 rounded-2xl w-full bg-white/5 backdrop-blur-sm"
-                  >
-                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400 animate-pulse">
-                      Select your action below
-                    </span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            )}
-
-            {currentMatch.status === "FINISHED" && (
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className={`flex flex-col items-center gap-3 border p-6 rounded-2xl ${getChoiceStyles(myChoice)}`}
+          {/* Choice Buttons - More prominent */}
+          <div className="grid grid-cols-3 gap-3 mt-auto">
+            {(["ROCK", "PAPER", "SCISSORS"] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => handleSelectChoice(option)}
+                disabled={!canChoose}
+                className={`flex flex-col items-center gap-3 p-6 rounded-2xl border font-bold uppercase tracking-wider transition-all text-sm ${
+                  canChoose
+                    ? "hover:scale-105 active:scale-95"
+                    : "opacity-40 cursor-not-allowed"
+                } ${
+                  localChoice === option || myChoice === option
+                    ? getChoiceStyles(option) + " ring-2 ring-blue-400 scale-95"
+                    : "border-white/10 bg-zinc-950/70 hover:bg-white/5"
+                }`}
               >
-                {renderChoiceIcon(myChoice)}
-                <span className="text-xs font-black uppercase tracking-wider">
-                  Revealed: {myChoice}
-                </span>
-              </motion.div>
-            )}
-
-            {/* {(currentMatch.status === "FINISHED" ||
-              currentMatch.status === "CANCELLED") && (
-              <div className="text-center">
-                {Number(currentMatch.winnerId) === myData?.id ? (
-                  <div className="text-green-400 flex flex-col items-center gap-2">
-                    <Trophy className="h-14 w-14 animate-bounce" />
-                    <span className="font-black text-xl uppercase tracking-wider">
-                      Victory
-                    </span>
-                    <span className="text-xs text-green-500 font-semibold uppercase">
-                      +{currentMatch.mode === "rank" ? "25" : "0"} RP Awarded
-                    </span>
-                  </div>
-                ) : currentMatch.winnerId === -1 ? (
-                  <div className="text-zinc-400 flex flex-col items-center gap-2">
-                    <span className="font-black text-xl uppercase tracking-wider">
-                      Draw Match
-                    </span>
-                    <span className="text-xs text-zinc-500 font-semibold uppercase">
-                      +{currentMatch.mode === "rank" ? "5" : "0"} RP
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-rose-400 flex flex-col items-center gap-2">
-                    <span className="font-black text-xl uppercase tracking-wider">
-                      Defeat
-                    </span>
-                    <span className="text-xs text-rose-500 font-semibold uppercase">
-                      {currentMatch.mode === "rank" ? "-15" : "0"} RP
-                    </span>
-                  </div>
-                )}
-              </div>
-            )} */}
-          </div>
-
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">
-              Combat Panel
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {(["ROCK", "PAPER", "SCISSORS"] as GameChoice[]).map((option) => {
-                const disabled =
-                  currentMatch.status !== "IN_PROGRESS" ||
-                  !!myChoice ||
-                  choiceSubmitting;
-                const isSelected =
-                  localChoice === option || myChoice === option;
-                const styles = getChoiceStyles(option);
-
-                return (
-                  <button
-                    key={option}
-                    onClick={() => handleSelectChoice(option)}
-                    disabled={disabled}
-                    id={`choice-button-${option}`}
-                    className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
-                      isSelected
-                        ? `${styles} ring-2 ring-blue-500/40 scale-95 shadow-lg`
-                        : disabled
-                          ? "border-white/5 bg-[#09090b]/20 text-zinc-700 opacity-40"
-                          : "border-white/10 bg-[#09090b]/80 text-zinc-400 hover:bg-white/10 hover:text-white hover:scale-[1.03]"
-                    }`}
-                  >
-                    {renderChoiceIcon(option)}
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
+                {renderChoiceIcon(option, "h-10 w-10")}
+                {option}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* PLAYER 2 (Right Panel: OPPONENT) */}
-        <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 h-2 bg-rose-500 w-1/3" />
+        {/* OPPONENT */}
+        <div className="flex flex-col rounded-3xl border border-white/10 bg-white/5 backdrop-blur p-6 relative">
+          <div className="absolute top-0 right-0 h-1.5 bg-rose-500 w-2/5 rounded-l" />
 
-          {/* Opponent Stats */}
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
-                Player 2 (Opponent)
-              </span>
-              <span className="font-mono text-xs text-zinc-400">
-                RP: {opponentData?.score}
-              </span>
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-xs font-black uppercase tracking-widest text-zinc-400">
+                OPPONENT
+              </div>
+              <h3 className="text-2xl font-bold text-white mt-1">Opponent</h3>
             </div>
-            <h3 className="text-lg font-bold text-white mt-1 flex items-center gap-2">
-              {opponentData?.username}
-              <span className="rounded bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase text-rose-400">
-                {String(opponentData?.id).startsWith("bot_")
-                  ? "NPC BOT"
-                  : "PLAYER"}
-              </span>
-            </h3>
-
-            {/* Score */}
-            <div className="mt-4 flex items-center gap-2 bg-white/5 border border-white/10 p-3 rounded-xl max-w-max">
-              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wide">
-                Rounds Won:
-              </span>
-              <span className="font-mono text-lg font-extrabold text-rose-400">
+            <div className="text-right">
+              <div className="text-xs text-zinc-400">SCORE</div>
+              <div className="text-3xl font-mono font-black text-rose-400">
                 {opponentScore}
-              </span>
+              </div>
             </div>
           </div>
 
-          {/* Visual Choice state for Opponent */}
-          <div className="my-8 flex items-center justify-center min-h-40">
-            {currentMatch.status === "WAITING_FOR_PLAYERS" && (
-              <div className="flex flex-col items-center text-center gap-2 text-zinc-500 animate-pulse">
-                <span className="text-xs font-bold uppercase tracking-wider">
-                  Syncing link...
-                </span>
-              </div>
-            )}
-
-            {currentMatch.status === "IN_PROGRESS" && (
+          <div className="flex flex-col rounded-3xl border border-white/10 bg-white/5 backdrop-blur p-6 relative">
+            <div className="flex-1 flex items-center justify-center my-8 min-h-45">
               <AnimatePresence mode="wait">
                 {opponentChoice ? (
                   <motion.div
+                    key={`opp-locked-${currentMatch.currentRoundNumber}`}
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="flex flex-col items-center gap-2 border border-white/10 bg-white/5 p-6 rounded-2xl text-zinc-300 shadow-md backdrop-blur-sm"
+                    className={`flex flex-col items-center gap-4 p-8 rounded-2xl border-2 ${getChoiceStyles(opponentChoice)}`}
                   >
-                    <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-blue-500/10">
-                      <Sparkles className="h-5 w-5 text-blue-400 animate-spin" />
-                    </div>
-                    <span className="text-xs font-black uppercase tracking-wider text-blue-400">
-                      Decision Locked
+                    {renderChoiceIcon(opponentChoice, "h-16 w-16")}
+                    <span className="font-black uppercase tracking-widest">
+                      LOCKED
                     </span>
+                  </motion.div>
+                ) : isPending ? (
+                  <motion.div
+                    key={`opp-waiting-${currentMatch.currentRoundNumber}`}
+                    animate={{ opacity: [0.5, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="text-center"
+                  >
+                    <Sparkles className="h-12 w-12 mx-auto animate-spin text-blue-400" />
+                    <p className="mt-4 text-sm uppercase tracking-widest">
+                      Opponent is choosing...
+                    </p>
                   </motion.div>
                 ) : (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex flex-col items-center text-center gap-2 text-zinc-500 border border-dashed border-white/10 p-8 rounded-2xl w-full bg-white/5 backdrop-blur-sm"
+                  <p
+                    key={`opp-idle-${currentMatch.currentRoundNumber}`}
+                    className="text-zinc-500"
                   >
-                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400 animate-pulse">
-                      Awaiting Opponent
-                    </span>
-                  </motion.div>
+                    Waiting for next round...
+                  </p>
                 )}
               </AnimatePresence>
-            )}
-
-            {currentMatch.status === "FINISHED" && (
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className={`flex flex-col items-center gap-3 border p-6 rounded-2xl ${getChoiceStyles(opponentChoice)}`}
-              >
-                {renderChoiceIcon(opponentChoice, "h-14 w-14 animate-bounce")}
-                <span className="text-xs font-black uppercase tracking-wider">
-                  Revealed: {opponentChoice}
-                </span>
-              </motion.div>
-            )}
-
-            {(currentMatch.status === "FINISHED" ||
-              currentMatch.status === "CANCELLED") && (
-              <div className="text-center">
-                {Number(currentMatch.winnerId) === opponentData?.id ? (
-                  <div className="text-green-400 flex flex-col items-center gap-2">
-                    <Trophy className="h-14 w-14 animate-bounce" />
-                    <span className="font-black text-xl uppercase tracking-wider">
-                      Victory
-                    </span>
-                  </div>
-                ) : currentMatch.winnerId === -1 ? (
-                  <div className="text-zinc-400 flex flex-col items-center gap-2">
-                    <span className="font-black text-xl uppercase tracking-wider">
-                      Draw Match
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-rose-400 flex flex-col items-center gap-2">
-                    <span className="font-black text-xl uppercase tracking-wider">
-                      Defeat
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Combat history round review logs */}
-          <div className="rounded-xl border border-white/5 bg-white/5 p-4 min-h-22.5 flex flex-col justify-center backdrop-blur-sm">
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1.5">
-              Round Clash Logs
-            </span>
-            <div className="text-xs font-medium text-zinc-400 flex flex-col gap-1">
-              {currentMatch.rounds.length === 0 ? (
-                <span className="italic text-zinc-500">
-                  No round clashes recorded yet.
-                </span>
-              ) : (
-                <div>Round history will appear here</div>
-              )}
             </div>
           </div>
+
+          {/* Big Central Timer + Status */}
+          {isPending && (
+            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 bg-zinc-950/90 border border-white/10 rounded-full px-4 py-1.5 shadow-lg backdrop-blur-md"
+              >
+                <Clock className="h-3.5 w-3.5 text-blue-400" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                  Round {currentMatch.currentRoundNumber}
+                </span>
+                <span
+                  className={`font-mono text-sm font-black ${timeLeft <= 5 ? "text-rose-500" : "text-white"}`}
+                >
+                  00:{timeLeft.toString().padStart(2, "0")}
+                </span>
+                {bothLocked && (
+                  <span className="text-[10px] font-bold text-green-400 uppercase tracking-wide">
+                    Resolving...
+                  </span>
+                )}
+              </motion.div>
+            </div>
+          )}
+
+          {/* Round History Placeholder */}
+          <div className="mt-auto rounded-2xl border border-white/5 bg-white/5 p-4 text-xs text-zinc-400">
+            Round history will appear here after clashes
+          </div>
         </div>
       </div>
 
-      {/* 3. CENTER OVERLAY COUNTDOWN CLOCK & ROUND CARD */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-33.75 flex flex-col items-center z-10">
-        <div className="flex flex-col items-center bg-[#09090b] border border-white/10 rounded-full px-5 py-3 shadow-2xl backdrop-blur-md">
-          {/* Phase Details Title */}
-          <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 animate-pulse text-center">
-            {currentMatch.status === "WAITING_FOR_PLAYERS"
-              ? `Round ${currentMatch.currentRoundNumber} Begins`
-              : currentMatch.status === "IN_PROGRESS"
-                ? "Locked Combat"
-                : currentMatch.status === "FINISHED"
-                  ? "Next Match Prep"
-                  : "Final Standings"}
-          </span>
-
-          {/* Countdown Clock (Monospace timer digits) */}
-          {/* <span
-            className={`font-mono text-3xl font-black ${currentMatch.roundTimer <= 3 ? "text-rose-500 animate-ping" : "text-white"}`}
-          >
-            00:{(currentMatch.roundTimer || 0).toString().padStart(2, "0")}
-          </span> */}
-        </div>
-      </div>
-
-      {/* 4. CONFIRM FORFEIT LOBBY ABANDON MODAL */}
+      {/* Forfeit Modal */}
       <AnimatePresence>
         {showForfeitModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur p-4">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#121214] p-6 shadow-2xl backdrop-blur-md"
+              className="max-w-sm w-full bg-zinc-900 rounded-3xl p-8 border border-white/10"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 mx-auto">
-                <AlertOctagon className="h-6 w-6" />
-              </div>
-              <h3 className="mt-4 text-center text-lg font-black uppercase text-white">
+              <AlertOctagon className="mx-auto h-12 w-12 text-rose-500" />
+              <h3 className="text-2xl font-black text-center mt-6">
                 Forfeit Match?
               </h3>
-              <p className="mt-2 text-center text-xs text-zinc-400 leading-relaxed">
-                Exiting now will declare you defeated. You will lose{" "}
-                <span className="font-bold text-rose-400">-30 RP</span> from
-                your Ranked record. Are you certain you want to abandon?
+              <p className="text-zinc-400 text-center mt-3">
+                You will lose <span className="text-rose-400">-30 RP</span>.
               </p>
 
-              <div className="mt-6 flex items-center gap-3">
+              <div className="grid grid-cols-2 gap-3 mt-8">
                 <button
                   onClick={() => setShowForfeitModal(false)}
-                  className="flex-1 rounded-xl border border-white/10 bg-white/5 py-3 text-xs font-bold uppercase text-zinc-400 hover:bg-white/10 cursor-pointer"
+                  className="py-4 rounded-2xl border border-white/10 hover:bg-white/5 font-bold"
                 >
-                  Stay & Fight
+                  CANCEL
                 </button>
                 <button
                   onClick={handleLeaveRoom}
-                  id="confirm-forfeit-button"
-                  className="flex-1 rounded-xl bg-rose-600 py-3 text-xs font-bold uppercase text-white hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-600/20"
+                  className="py-4 rounded-2xl bg-rose-600 hover:bg-rose-500 font-bold"
                 >
-                  Yes, Surrender
+                  SURRENDER
                 </button>
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {latestRound?.status === "COMPLETED" && (
+          <motion.div
+            key={`result-${latestRound.roundNumber}`}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-32 left-1/2 -translate-x-1/2 z-40 pointer-events-none"
+          >
+            <div
+              className={`rounded-xl border px-6 py-2 font-black uppercase tracking-widest text-sm shadow-xl backdrop-blur-md ${
+                latestRound.winnerId === -1
+                  ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
+                  : latestRound.winnerId === user?.id
+                    ? "bg-green-500/20 border-green-500/50 text-green-300"
+                    : "bg-rose-500/20 border-rose-500/50 text-rose-300"
+              }`}
+            >
+              {latestRound.winnerId === -1
+                ? "Round Draw"
+                : latestRound.winnerId === user?.id
+                  ? "You Won This Round"
+                  : "You Lost This Round"}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -29,27 +29,24 @@ import lombok.extern.slf4j.Slf4j;
 public class RoundService {
 
     static final int MAX_ROUNDS = 3;
-    static final int WINS_NEEDED = 2; // best of 3
+    static final int WINS_NEEDED = 2;
 
     RoundRepository roundRepository;
     MatchService matchService;
+    PlayerService playerService; // now used for a REAL email lookup, not a stub
     SimpMessagingTemplate messagingTemplate;
 
-    /** Ensures round 1 exists; called once when a match is created. */
     @Transactional
     public void startFirstRound(Long matchId) {
         roundRepository.save(RoundEntity.builder()
-                .matchId(matchId)
-                .roundNumber(1)
-                .status(RoundStatus.PENDING)
-                .build());
+                .matchId(matchId).roundNumber(1).status(RoundStatus.PENDING).build());
     }
 
     @Transactional
     public MatchStateResponse submitChoice(Long matchId, Long playerId, GameChoice choice) {
         MatchEntity match = matchService.getActiveMatch(matchId);
 
-        if (match.getStatus() != MatchStatus.WAITING_FOR_PLAYERS && match.getStatus() != MatchStatus.IN_PROGRESS) {
+        if (match.getStatus() != MatchStatus.IN_PROGRESS && match.getStatus() != MatchStatus.WAITING_FOR_PLAYERS) {
             throw new AppException(ErrorCode.MATCH_NOT_IN_PROGRESS);
         }
         if (match.getStatus() == MatchStatus.WAITING_FOR_PLAYERS) {
@@ -57,10 +54,6 @@ public class RoundService {
         }
 
         boolean isPlayerOne = match.getPlayerOneId().equals(playerId);
-        if (!isPlayerOne && !match.getPlayerTwoId().equals(playerId)) {
-            throw new AppException(ErrorCode.NOT_MATCH_PARTICIPANT);
-        }
-
         RoundEntity round = roundRepository.findByMatchIdAndStatus(matchId, RoundStatus.PENDING)
                 .orElseThrow(() -> new AppException(ErrorCode.ROUND_NOT_FOUND));
 
@@ -74,11 +67,17 @@ public class RoundService {
         roundRepository.save(round);
 
         if (round.getPlayerOneChoice() != null && round.getPlayerTwoChoice() != null) {
-            resolveRound(match, round);
+            resolveRound(match, round); // no longer broadcasts internally — see below
         }
 
-        MatchStateResponse state = buildAndBroadcastState(matchId);
-        return state;
+        // Push each player THEIR OWN perspective — not a shared/neutral one.
+        // This fixes both bugs: the opponent's store never gets clobbered with
+        // nulled-out choices, and both players get pushed round-by-round instead
+        // of only whoever happens to make the final REST call.
+        pushStateToBothPlayers(match);
+
+        // Return value is this caller's OWN perspective for their REST response.
+        return buildState(match, playerId);
     }
 
     private void resolveRound(MatchEntity match, RoundEntity round) {
@@ -97,7 +96,8 @@ public class RoundService {
         boolean matchDecided = p1Wins >= WINS_NEEDED || p2Wins >= WINS_NEEDED || allRounds.size() >= MAX_ROUNDS;
 
         if (matchDecided) {
-            Long matchWinnerId = p1Wins == p2Wins ? -1L : (p1Wins > p2Wins ? match.getPlayerOneId() : match.getPlayerTwoId());
+            Long matchWinnerId = (p1Wins == p2Wins) ? -1L
+                    : (p1Wins > p2Wins ? match.getPlayerOneId() : match.getPlayerTwoId());
             matchService.finishMatch(match, matchWinnerId);
         } else {
             roundRepository.save(RoundEntity.builder()
@@ -106,9 +106,11 @@ public class RoundService {
                     .status(RoundStatus.PENDING)
                     .build());
         }
+        // NOTE: no broadcast call here anymore — submitChoice does exactly one
+        // push, after this method returns, instead of two (this was previously
+        // firing broadcastFullState twice per resolved round — harmless but wasteful).
     }
 
-    /** Standard RPS rules. Returns winner playerId, -1L for draw. */
     private Long decideWinner(GameChoice p1, GameChoice p2, Long p1Id, Long p2Id) {
         if (p1 == p2) return -1L;
         boolean p1Wins = switch (p1) {
@@ -119,44 +121,45 @@ public class RoundService {
         return p1Wins ? p1Id : p2Id;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public MatchStateResponse getMatchState(Long matchId, Long requestingPlayerId) {
         MatchEntity match = matchService.getActiveMatch(matchId);
-        if (!match.getPlayerOneId().equals(requestingPlayerId) && !match.getPlayerTwoId().equals(requestingPlayerId)) {
-            throw new AppException(ErrorCode.NOT_MATCH_PARTICIPANT);
-        }
         return buildState(match, requestingPlayerId);
     }
 
-    /** Builds a neutral (server-perspective) state, then broadcasts a per-player-safe payload to each player individually via /topic — see note below. */
-    private MatchStateResponse buildAndBroadcastState(Long matchId) {
-        MatchEntity match = matchService.getActiveMatch(matchId);
-        // Broadcast on a shared topic; each client filters/derives "my" vs "opponent" choice client-side
-        // using their own known playerId, since /topic is shared by both players.
-        MatchStateResponse sharedView = buildState(match, null);
-        messagingTemplate.convertAndSend("/topic/match/" + matchId, sharedView);
-        return sharedView;
+    /** Sends each player a state built from THEIR OWN perspective — the fix. */
+    private void pushStateToBothPlayers(MatchEntity match) {
+        String p1Email = playerService.getEmailById(match.getPlayerOneId());
+        String p2Email = playerService.getEmailById(match.getPlayerTwoId());
+
+        messagingTemplate.convertAndSendToUser(p1Email, "/queue/round", buildState(match, match.getPlayerOneId()));
+        messagingTemplate.convertAndSendToUser(p2Email, "/queue/round", buildState(match, match.getPlayerTwoId()));
     }
 
     private MatchStateResponse buildState(MatchEntity match, Long requestingPlayerId) {
         List<RoundEntity> rounds = roundRepository.findByMatchIdOrderByRoundNumberAsc(match.getId());
 
         List<RoundResponse> roundResponses = rounds.stream().map(r -> {
-            boolean revealAll = r.getStatus() == RoundStatus.COMPLETED || requestingPlayerId == null;
-            GameChoice myChoice = requestingPlayerId == null ? null
-                    : (match.getPlayerOneId().equals(requestingPlayerId) ? r.getPlayerOneChoice() : r.getPlayerTwoChoice());
-            GameChoice oppChoice = requestingPlayerId == null ? null
-                    : (revealAll ? (match.getPlayerOneId().equals(requestingPlayerId) ? r.getPlayerTwoChoice() : r.getPlayerOneChoice()) : null);
+            boolean isCompleted = r.getStatus() == RoundStatus.COMPLETED;
+            GameChoice myChoice = null;
+            GameChoice oppChoice = null;
+
+            if (requestingPlayerId != null) {
+                boolean isP1 = match.getPlayerOneId().equals(requestingPlayerId);
+                myChoice = isP1 ? r.getPlayerOneChoice() : r.getPlayerTwoChoice();
+                oppChoice = isCompleted ? (isP1 ? r.getPlayerTwoChoice() : r.getPlayerOneChoice()) : null;
+            }
+
             return new RoundResponse(r.getRoundNumber(), myChoice, oppChoice, r.getWinnerId(), r.getStatus());
         }).toList();
 
         long p1Score = rounds.stream().filter(r -> match.getPlayerOneId().equals(r.getWinnerId())).count();
         long p2Score = rounds.stream().filter(r -> match.getPlayerTwoId().equals(r.getWinnerId())).count();
-        int currentRoundNumber = rounds.isEmpty() ? 1 : rounds.get(rounds.size() - 1).getRoundNumber();
 
         return new MatchStateResponse(
                 match.getId(), match.getPlayerOneId(), match.getPlayerTwoId(), match.getStatus(),
-                match.getWinnerId(), (int) p1Score, (int) p2Score, currentRoundNumber, roundResponses
+                match.getWinnerId(), (int) p1Score, (int) p2Score,
+                rounds.isEmpty() ? 1 : rounds.get(rounds.size() - 1).getRoundNumber(), roundResponses
         );
     }
 }

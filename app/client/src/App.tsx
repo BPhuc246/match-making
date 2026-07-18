@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import AuthPage from "./page/AuthPage";
 import MainLayout from "./layout/MainLayout";
 import LobbyPage from "./page/LobbyPage";
-// import RoomPage from "./page/RoomPage";
+import MatchPage from "./page/MatchPage";
 
 const App = () => {
   return (
@@ -16,14 +16,14 @@ const App = () => {
           </MainLayout>
         }
       />
-      {/* <Route
-        path="/room/:roomId"
+      <Route
+        path="/room/:matchId"
         element={
           <MainLayout>
-            <RoomPage />
+            <MatchPage />
           </MainLayout>
         }
-      /> */}
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
