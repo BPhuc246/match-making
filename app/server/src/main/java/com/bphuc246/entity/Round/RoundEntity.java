@@ -30,7 +30,6 @@ public class RoundEntity {
     @Enumerated(EnumType.STRING)
     GameChoice playerTwoChoice;
 
-    // null while PENDING; playerId of winner, or -1L to represent a draw round
     Long winnerId;
 
     @Enumerated(EnumType.STRING)

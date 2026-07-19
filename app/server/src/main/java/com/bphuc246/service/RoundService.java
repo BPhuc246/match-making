@@ -35,6 +35,7 @@ public class RoundService {
     MatchService matchService;
     PlayerService playerService; // now used for a REAL email lookup, not a stub
     SimpMessagingTemplate messagingTemplate;
+    PlayerMoveStatsService playerMoveStatsService;
 
     @Transactional
     public void startFirstRound(Long matchId) {
@@ -66,17 +67,16 @@ public class RoundService {
         }
         roundRepository.save(round);
 
+        // Record this move for predictability tracking, independent of round
+        // resolution — every submitted choice is a data point, whether or not
+        // the round has resolved yet.
+        playerMoveStatsService.recordMove(playerId, choice);
+
         if (round.getPlayerOneChoice() != null && round.getPlayerTwoChoice() != null) {
-            resolveRound(match, round); // no longer broadcasts internally — see below
+            resolveRound(match, round);
         }
 
-        // Push each player THEIR OWN perspective — not a shared/neutral one.
-        // This fixes both bugs: the opponent's store never gets clobbered with
-        // nulled-out choices, and both players get pushed round-by-round instead
-        // of only whoever happens to make the final REST call.
         pushStateToBothPlayers(match);
-
-        // Return value is this caller's OWN perspective for their REST response.
         return buildState(match, playerId);
     }
 
