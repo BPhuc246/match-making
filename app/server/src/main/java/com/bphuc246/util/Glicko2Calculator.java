@@ -100,6 +100,18 @@ public class Glicko2Calculator {
         return (num1 / den1) - ((x - a) / (TAU * TAU));
     }
 
+    /** Probability that player A beats player B, using their current rating/RD. This is
+     *  literally the same E() function the algorithm already uses internally to update
+     *  ratings — exposing it gives us a principled "predicted fairness" number for free,
+     *  no separate model training needed. */
+    public static double winProbability(double ratingA, double rdA, double ratingB, double rdB) {
+        double muA = toMu(ratingA);
+        double muB = toMu(ratingB);
+        double phiB = toPhi(rdB);
+        return E(muA, muB, phiB);
+    }
+
+
     private static double toMu(double rating) { return (rating - 1500) / SCALE; }
     private static double toPhi(double rd) { return rd / SCALE; }
     private static double fromMu(double mu) { return mu * SCALE + 1500; }

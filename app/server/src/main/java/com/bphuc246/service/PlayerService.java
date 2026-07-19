@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 
 import com.bphuc246.Repository.PlayerRepository;
 import com.bphuc246.dto.Response.PlayerResponse.PlayerResponse;
+import com.bphuc246.entity.Player.PlayerEntity;
 import com.bphuc246.exception.AppException;
 import com.bphuc246.exception.ErrorCode;
 
@@ -43,5 +44,8 @@ public class PlayerService {
                 .getRating();
     }
 
-    
+    public PlayerEntity getPlayerEntityById(Long playerId) {
+        return playerRepository.findById(playerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+    }
 }

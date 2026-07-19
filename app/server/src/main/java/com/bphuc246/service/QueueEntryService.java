@@ -1,5 +1,6 @@
 package com.bphuc246.service;
 
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bphuc246.Repository.QueueEntryRepository;
 import com.bphuc246.dto.Response.QueueJoinResponse;
 import com.bphuc246.entity.Match.MatchEntity;
+import com.bphuc246.entity.Player.PlayerEntity;
 import com.bphuc246.entity.QueueEntry.QueueEntryEntity;
 import com.bphuc246.entity.QueueEntry.QueueStatus;
 import com.bphuc246.entity.QueueEntry.QueueType;
@@ -31,6 +33,7 @@ public class QueueEntryService {
     MatchNotificationService matchNotificationService;
     RoundService roundService;
     PlayerService playerService;
+    MatchFairnessService matchFairnessService;
 
     // QueueEntryService
     @Transactional
@@ -56,31 +59,31 @@ public class QueueEntryService {
                 .findByPlayerIdAndQueueTypeAndQueueStatus(playerId, queueType, QueueStatus.WAITING)
                 .ifPresent(e -> { throw new AppException(ErrorCode.ALREADY_IN_QUEUE); });
 
-        Double myRating = queueType == QueueType.RANKED
-                ? playerService.getRatingById(playerId) // add this small helper to PlayerService
-                : null;
+        Double myRating = queueType == QueueType.RANKED ? playerService.getRatingById(playerId) : null;
 
         QueueEntryEntity self = QueueEntryEntity.builder()
                 .playerId(playerId)
                 .queueType(queueType)
                 .queueStatus(QueueStatus.WAITING)
                 .ratingAtQueue(myRating)
-                .searchRange(100) // fixed starting range; widened later by the scheduled job
+                .searchRange(100)
                 .build();
         self = queueEntryRepository.save(self);
         queueEntryRepository.flush();
 
-        List<QueueEntryEntity> opponents = queueType == QueueType.RANKED
+        List<QueueEntryEntity> candidates = queueType == QueueType.RANKED
                 ? queueEntryRepository.findWaitingOpponentsInRange(
-                        queueType, QueueStatus.WAITING, playerId, myRating, self.getSearchRange(), PageRequest.of(0, 1))
+                        queueType, QueueStatus.WAITING, playerId, myRating, self.getSearchRange(), PageRequest.of(0, 5))
                 : queueEntryRepository.findWaitingOpponents(
-                        queueType, QueueStatus.WAITING, playerId, PageRequest.of(0, 1));
+                        queueType, QueueStatus.WAITING, playerId, PageRequest.of(0, 5));
 
-        if (opponents.isEmpty()) {
+        if (candidates.isEmpty()) {
             return QueueJoinResponse.waiting(self.getId());
         }
 
-        QueueEntryEntity opponent = opponents.get(0);
+        QueueEntryEntity opponent = queueType == QueueType.RANKED
+                ? pickFairestOpponent(playerId, candidates)
+                : candidates.get(0); // CASUAL stays pure FIFO — no fairness weighting needed
 
         MatchEntity match = matchService.createMatch(opponent.getPlayerId(), playerId, queueType);
         roundService.startFirstRound(match.getId());
@@ -97,7 +100,28 @@ public class QueueEntryService {
 
         return QueueJoinResponse.matched(self.getId(), opponent.getPlayerId(), match.getId());
     }
-    
+
+    /** Among rating-eligible candidates, pick whichever minimizes combined unfairness.
+     *  Note this only reorders WITHIN the already-widened rating range from step 2 —
+     *  it never overrides that filter, so wait-time guarantees from the widening
+     *  scheduler are untouched. This only matters when 2+ candidates are simultaneously
+     *  eligible, which becomes more common as ranges widen or queue traffic grows. */
+    private QueueEntryEntity pickFairestOpponent(Long playerId, List<QueueEntryEntity> candidates) {
+        PlayerEntity self = playerService.getPlayerEntityById(playerId);
+
+        candidates.forEach(c -> {
+            PlayerEntity candidatePlayer = playerService.getPlayerEntityById(c.getPlayerId());
+            double unfairness = matchFairnessService.computeUnfairness(self, candidatePlayer);
+            log.info("[Fairness] candidate playerId={} rating={} unfairness={}",
+                    c.getPlayerId(), candidatePlayer.getRating(), unfairness);
+        });
+
+        return candidates.stream()
+                .min(Comparator.comparingDouble(c ->
+                        matchFairnessService.computeUnfairness(self, playerService.getPlayerEntityById(c.getPlayerId()))))
+                .orElseThrow();
+    }
+        
     @Transactional
     public void cancelQueue(Long playerId, QueueType queueType) {
         QueueEntryEntity entry = queueEntryRepository
