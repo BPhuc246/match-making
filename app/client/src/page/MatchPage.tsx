@@ -39,15 +39,20 @@ export default function MatchPage() {
   const [localChoice, setLocalChoice] = useState<GameChoice | null>(null);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME_SECONDS);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const isTimerRunning = currentMatch?.rounds.at(-1)?.status === "PENDING";
 
   const prevRoundRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
 
-  const getErrorMessage = (err: any): string => {
+  const getErrorMessage = (err: unknown): string => {
     if (!err) return "An unknown error occurred";
     if (typeof err === "string") return err;
-    return err.message || err.code || "Failed to submit choice";
+    if (err instanceof Error) return err.message;
+    if (typeof err === "object") {
+      const maybe = err as { message?: string; code?: string };
+      return maybe.message ?? maybe.code ?? "Failed to submit choice";
+    }
+    return "Failed to submit choice";
   };
 
   // Timer logic
@@ -68,21 +73,11 @@ export default function MatchPage() {
   // Start / Reset timer when new round starts
   useEffect(() => {
     if (!currentMatch) return;
-
     const currentRoundNum = currentMatch.currentRoundNumber || 1;
-    const latestRound = currentMatch.rounds.at(-1);
-
-    console.log(
-      `[Match] Round changed: ${prevRoundRef.current} → ${currentRoundNum}`,
-      latestRound,
-    );
     if (currentRoundNum > prevRoundRef.current) {
       setLocalChoice(null);
       setTimeLeft(ROUND_TIME_SECONDS);
-      setIsTimerRunning(latestRound?.status === "PENDING");
       prevRoundRef.current = currentRoundNum;
-    } else if (latestRound?.status !== "PENDING") {
-      setIsTimerRunning(false);
     }
   }, [currentMatch]);
 
