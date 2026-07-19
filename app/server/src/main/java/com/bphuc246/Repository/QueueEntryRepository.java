@@ -35,6 +35,26 @@ public interface QueueEntryRepository extends JpaRepository<QueueEntryEntity, Lo
             @Param("playerId") Long playerId,
             Pageable pageable);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT q FROM QueueEntryEntity q
+        WHERE q.queueType = :queueType
+          AND q.queueStatus = :status
+          AND q.playerId <> :playerId
+          AND ABS(q.ratingAtQueue - :myRating) <= q.searchRange
+          AND ABS(q.ratingAtQueue - :myRating) <= :mySearchRange
+        ORDER BY q.joinedAt ASC
+        """)
+    List<QueueEntryEntity> findWaitingOpponentsInRange(
+            @Param("queueType") QueueType queueType,
+            @Param("status") QueueStatus status,
+            @Param("playerId") Long playerId,
+            @Param("myRating") Double myRating,
+            @Param("mySearchRange") Integer mySearchRange,
+            Pageable pageable);
+            
+    /** Used by the widening scheduled job */
+    List<QueueEntryEntity> findByQueueStatusAndQueueType(QueueStatus status, QueueType queueType);
     // Cleanup: remove a specific player's queue record tied to a specific match once they leave the room
     @Modifying
     @Query("DELETE FROM QueueEntryEntity q WHERE q.playerId = :playerId AND q.matchId = :matchId")

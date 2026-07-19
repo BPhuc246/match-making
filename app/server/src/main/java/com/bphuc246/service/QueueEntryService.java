@@ -30,6 +30,7 @@ public class QueueEntryService {
     MatchService matchService;
     MatchNotificationService matchNotificationService;
     RoundService roundService;
+    PlayerService playerService;
 
     // QueueEntryService
     @Transactional
@@ -55,13 +56,25 @@ public class QueueEntryService {
                 .findByPlayerIdAndQueueTypeAndQueueStatus(playerId, queueType, QueueStatus.WAITING)
                 .ifPresent(e -> { throw new AppException(ErrorCode.ALREADY_IN_QUEUE); });
 
+        Double myRating = queueType == QueueType.RANKED
+                ? playerService.getRatingById(playerId) // add this small helper to PlayerService
+                : null;
+
         QueueEntryEntity self = QueueEntryEntity.builder()
-                .playerId(playerId).queueType(queueType).queueStatus(QueueStatus.WAITING).build();
+                .playerId(playerId)
+                .queueType(queueType)
+                .queueStatus(QueueStatus.WAITING)
+                .ratingAtQueue(myRating)
+                .searchRange(100) // fixed starting range; widened later by the scheduled job
+                .build();
         self = queueEntryRepository.save(self);
         queueEntryRepository.flush();
 
-        List<QueueEntryEntity> opponents = queueEntryRepository.findWaitingOpponents(
-                queueType, QueueStatus.WAITING, playerId, PageRequest.of(0, 1));
+        List<QueueEntryEntity> opponents = queueType == QueueType.RANKED
+                ? queueEntryRepository.findWaitingOpponentsInRange(
+                        queueType, QueueStatus.WAITING, playerId, myRating, self.getSearchRange(), PageRequest.of(0, 1))
+                : queueEntryRepository.findWaitingOpponents(
+                        queueType, QueueStatus.WAITING, playerId, PageRequest.of(0, 1));
 
         if (opponents.isEmpty()) {
             return QueueJoinResponse.waiting(self.getId());
@@ -69,8 +82,7 @@ public class QueueEntryService {
 
         QueueEntryEntity opponent = opponents.get(0);
 
-        // Two explicit calls instead of MatchService reaching into RoundService internally
-        MatchEntity match = matchService.createMatch(opponent.getPlayerId(), playerId);
+        MatchEntity match = matchService.createMatch(opponent.getPlayerId(), playerId, queueType);
         roundService.startFirstRound(match.getId());
 
         self.setQueueStatus(QueueStatus.FINISHED);
@@ -85,6 +97,7 @@ public class QueueEntryService {
 
         return QueueJoinResponse.matched(self.getId(), opponent.getPlayerId(), match.getId());
     }
+    
     @Transactional
     public void cancelQueue(Long playerId, QueueType queueType) {
         QueueEntryEntity entry = queueEntryRepository

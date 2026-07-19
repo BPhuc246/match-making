@@ -37,5 +37,11 @@ public class PlayerService {
                 .getEmail();
     }
 
+    public double getRatingById(Long playerId) {
+        return playerRepository.findById(playerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED))
+                .getRating();
+    }
+
     
 }
