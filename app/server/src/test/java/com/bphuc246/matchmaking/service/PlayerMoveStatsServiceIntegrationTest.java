@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.bphuc246.Repository.PlayerMoveStatsRepository;
@@ -16,8 +15,7 @@ import com.bphuc246.service.PlayerMoveStatsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE) // use our H2 config, not an auto-picked one
-@Import(PlayerMoveStatsService.class)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 class PlayerMoveStatsServiceIntegrationTest {
 
