@@ -7,6 +7,7 @@ import com.bphuc246.Repository.MatchRepository;
 import com.bphuc246.Repository.QueueEntryRepository;
 import com.bphuc246.entity.Match.MatchEntity;
 import com.bphuc246.entity.Match.MatchStatus;
+import com.bphuc246.entity.QueueEntry.QueueType;
 import com.bphuc246.exception.AppException;
 import com.bphuc246.exception.ErrorCode;
 
@@ -23,6 +24,7 @@ public class MatchService {
 
     MatchRepository matchRepository;
     QueueEntryRepository queueEntryRepository;
+    RatingService ratingService;
 
     public Long getOpponentId(Long matchId, Long playerId) {
         MatchEntity match = getActiveMatch(matchId);
@@ -32,14 +34,15 @@ public class MatchService {
     }
 
     @Transactional
-    public MatchEntity createMatch(Long playerOneId, Long playerTwoId) {
+    public MatchEntity createMatch(Long playerOneId, Long playerTwoId, QueueType queueType) {
         MatchEntity match = MatchEntity.builder()
                 .playerOneId(playerOneId)
                 .playerTwoId(playerTwoId)
                 .status(MatchStatus.WAITING_FOR_PLAYERS)
+                .queueType(queueType)
                 .build();
         match = matchRepository.save(match);
-        log.info("Match {} created for players {} vs {}", match.getId(), playerOneId, playerTwoId);
+        log.info("Match {} created for players {} vs {} (queueType={})", match.getId(), playerOneId, playerTwoId, queueType);
         return match;
     }
 
@@ -85,6 +88,18 @@ public class MatchService {
         match.setStatus(MatchStatus.FINISHED);
         match.setWinnerId(winnerId);
         match.setEndedAt(java.time.LocalDateTime.now());
+
+        // Only RANKED matches affect rating — CASUAL is play-for-fun, shouldn't move anyone's skill number
+        if (match.getQueueType() == QueueType.RANKED) {
+            RatingService.RatingUpdateResult result =
+                    ratingService.applyMatchResult(match.getPlayerOneId(), match.getPlayerTwoId(), winnerId);
+
+            match.setPlayerOneRatingBefore(result.playerOneBefore());
+            match.setPlayerOneRatingAfter(result.playerOneAfter());
+            match.setPlayerTwoRatingBefore(result.playerTwoBefore());
+            match.setPlayerTwoRatingAfter(result.playerTwoAfter());
+        }
+
         matchRepository.save(match);
     }
 

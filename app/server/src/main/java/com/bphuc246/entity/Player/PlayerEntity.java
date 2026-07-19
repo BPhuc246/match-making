@@ -59,6 +59,34 @@ public class PlayerEntity {
     @Column(name = "updated_at")
     LocalDateTime updatedAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    Double rating = 1500.0;
+
+    @Column(name = "rating_deviation", nullable = false)
+    @Builder.Default
+    Double ratingDeviation = 350.0; // confidence in the rating; high = uncertain (new/inactive player)
+
+    @Column(nullable = false)
+    @Builder.Default
+    Double volatility = 0.06; // how erratic the player's results are, standard Glicko-2 default
+
+    @Column(name = "games_played", nullable = false)
+    @Builder.Default
+    Integer gamesPlayed = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    Integer wins = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    Integer losses = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    Integer draws = 0;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

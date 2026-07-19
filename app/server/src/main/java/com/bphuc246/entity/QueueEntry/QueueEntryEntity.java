@@ -50,6 +50,16 @@ public class QueueEntryEntity {
     @Builder.Default
     QueueStatus queueStatus = QueueStatus.WAITING;
 
+    @Column(name = "rating_at_queue")
+    Double ratingAtQueue; // snapshot when they joined — used for the search-range calc
+
+    @Column(name = "search_range")
+    @Builder.Default
+    Integer searchRange = 100; // starts narrow, widens the longer they wait
+
+    @Column(name = "last_widened_at")
+    LocalDateTime lastWidenedAt;
+
     @PrePersist
     protected void onCreate() {
         joinedAt = LocalDateTime.now();

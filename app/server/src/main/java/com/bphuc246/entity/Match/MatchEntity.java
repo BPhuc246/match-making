@@ -2,6 +2,7 @@ package com.bphuc246.entity.Match;
 
 import java.time.LocalDateTime;
 
+import com.bphuc246.entity.QueueEntry.QueueType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -48,4 +49,21 @@ public class MatchEntity {
     LocalDateTime startedAt;
 
     LocalDateTime endedAt;
+
+    @Column(name = "player_one_rating_before")
+    Double playerOneRatingBefore;
+
+    @Column(name = "player_two_rating_before")
+    Double playerTwoRatingBefore;
+
+    @Column(name = "player_one_rating_after")
+    Double playerOneRatingAfter;
+
+    @Column(name = "player_two_rating_after")
+    Double playerTwoRatingAfter;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "queue_type", nullable = false)
+    QueueType queueType; // RANKED matches only affect rating; CASUAL shouldn't
+
 }
