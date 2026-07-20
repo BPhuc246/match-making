@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bphuc246.Repository.MatchRepository;
 import com.bphuc246.Repository.QueueEntryRepository;
 import com.bphuc246.dto.Response.QueueJoinResponse;
 import com.bphuc246.entity.Match.MatchEntity;
@@ -16,6 +17,7 @@ import com.bphuc246.entity.QueueEntry.QueueStatus;
 import com.bphuc246.entity.QueueEntry.QueueType;
 import com.bphuc246.exception.AppException;
 import com.bphuc246.exception.ErrorCode;
+import com.bphuc246.util.Glicko2Calculator;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,7 @@ public class QueueEntryService {
     RoundService roundService;
     PlayerService playerService;
     MatchFairnessService matchFairnessService;
+    MatchRepository matchRepository;
 
     // QueueEntryService
     @Transactional
@@ -78,15 +81,30 @@ public class QueueEntryService {
                         queueType, QueueStatus.WAITING, playerId, PageRequest.of(0, 5));
 
         if (candidates.isEmpty()) {
-            return QueueJoinResponse.waiting(self.getId());
+                return QueueJoinResponse.waiting(self.getId());
         }
 
         QueueEntryEntity opponent = queueType == QueueType.RANKED
                 ? pickFairestOpponent(playerId, candidates)
                 : candidates.get(0); // CASUAL stays pure FIFO — no fairness weighting needed
 
+        // Add after opponent is selected, before creating the match (RANKED only)
         MatchEntity match = matchService.createMatch(opponent.getPlayerId(), playerId, queueType);
         roundService.startFirstRound(match.getId());
+
+        if (queueType == QueueType.RANKED) {
+        PlayerEntity selfPlayer = playerService.getPlayerEntityById(playerId);
+        PlayerEntity opponentPlayer = playerService.getPlayerEntityById(opponent.getPlayerId());
+
+        double predictedWinProb = Glicko2Calculator.winProbability(
+                selfPlayer.getRating(), selfPlayer.getRatingDeviation(),
+                opponentPlayer.getRating(), opponentPlayer.getRatingDeviation());
+        double predictedUnfairness = matchFairnessService.computeUnfairness(selfPlayer, opponentPlayer);
+
+        match.setPredictedWinProbability(predictedWinProb);
+        match.setPredictedUnfairness(predictedUnfairness);
+        matchRepository.save(match); // add this trivial passthrough if MatchService doesn't already expose one
+        }
 
         self.setQueueStatus(QueueStatus.FINISHED);
         self.setMatchId(match.getId());

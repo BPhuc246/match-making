@@ -41,10 +41,10 @@ public class JwtService {
     }
 
     public List<String> extractAuthorities(String token) {
-        try {                                                      
+        try {
             SignedJWT jwt = getSignedJWT(token);
             List<String> roles = jwt.getJWTClaimsSet().getStringListClaim("roles");
-            return roles != null ? roles : List.of();            
+            return roles != null ? roles : List.of();
         } catch (Exception e) {
             throw new RuntimeException("Failed to extract authorities", e);
         }

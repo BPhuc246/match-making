@@ -3,6 +3,7 @@ import globalSlice from "./globalSlice";
 import authSlice from "./authSlice";
 import queueSlice from "./queueSlice";
 import matchSlice from "./matchSlice";
+import adminSlice from "./adminSlice";
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     auth: authSlice,
     match: matchSlice,
     queue: queueSlice,
+    admin: adminSlice
   },
 });
 

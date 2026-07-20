@@ -3,6 +3,7 @@ import AuthPage from "./page/AuthPage";
 import MainLayout from "./layout/MainLayout";
 import LobbyPage from "./page/LobbyPage";
 import MatchPage from "./page/MatchPage";
+import CalibrationPage from "./page/CalibrationPage";
 
 const App = () => {
   return (
@@ -13,6 +14,14 @@ const App = () => {
         element={
           <MainLayout>
             <LobbyPage />
+          </MainLayout>
+        }
+      />
+      <Route
+        path="/admin/calibration"
+        element={
+          <MainLayout>
+            <CalibrationPage />
           </MainLayout>
         }
       />

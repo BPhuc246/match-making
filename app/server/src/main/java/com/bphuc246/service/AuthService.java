@@ -203,12 +203,12 @@ public class AuthService {
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
             .subject(PlayerEntity.getEmail())
             .claim("email", PlayerEntity.getEmail())
-            .issuer("roll-call.com")
+            .issuer("match-making.com")
             .issueTime(new Date())
             .expirationTime(new Date(
                     Instant.now().plus(duration, unit).toEpochMilli()))
             .jwtID(UUID.randomUUID().toString())
-            .claim("scope", "NAME_" + PlayerEntity.getUsername())
+            .claim("scope", "ROLE_" + PlayerEntity.getRolePlayer())
             .build();
 
         Payload payload = new Payload(jwtClaimsSet.toJSONObject());

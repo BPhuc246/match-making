@@ -50,6 +50,11 @@ public class PlayerEntity {
     @Builder.Default
     AccountStatus accountStatus = AccountStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    @Builder.Default
+    RolePlayer rolePlayer = RolePlayer.PLAYER;
+
     @Column(name = "last_login")
     LocalDateTime lastLogin;
 

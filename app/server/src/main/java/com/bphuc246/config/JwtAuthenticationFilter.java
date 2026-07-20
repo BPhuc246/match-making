@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;                  
+    private final JwtService jwtService;
     private final InvalidTokenRepository invalidTokenRepository;
     
     @Override

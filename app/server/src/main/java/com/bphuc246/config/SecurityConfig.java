@@ -40,7 +40,11 @@ public class SecurityConfig {
 
     private final String[] PUBLIC_ENDPOINTS = { "/auth/login",
         "/auth/register",
-        "/auth/refresh", "/auth/logout", "/user/**", "/problem/**", "/ws/**" };
+        "/auth/refresh", "/auth/logout", "/ws/**" };
+    
+    private final String[] AUTHENTICATD_ENDPOINTS = {
+        "/user/**", "/match/**", "/queue_entry/**"
+    };
 
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
@@ -61,7 +65,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(request ->
                 request
                     .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                    .requestMatchers("/api/qr/**").authenticated()
+                    .requestMatchers("/admin/**").hasRole("ADMIN")
+                    .requestMatchers(AUTHENTICATD_ENDPOINTS).authenticated()
                     .anyRequest().authenticated())
             .csrf(csrf -> csrf.disable());
 
@@ -82,3 +87,23 @@ public class SecurityConfig {
         return source;
     }
 }
+
+
+/*
+
+
+adminThunk.ts:14 
+ GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
+adminThunk.ts:14 
+ GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
+axios.ts:34 
+ GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
+axios.ts:45 
+ GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
+axios.ts:45 
+ GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
+﻿
+
+
+
+*/

@@ -66,4 +66,9 @@ public class MatchEntity {
     @Column(name = "queue_type", nullable = false)
     QueueType queueType; // RANKED matches only affect rating; CASUAL shouldn't
 
+    @Column(name = "predicted_win_probability")
+    Double predictedWinProbability; // Glicko-2's E() for playerOne, snapshotted at match creation
+
+    @Column(name = "predicted_unfairness")
+    Double predictedUnfairness; // MatchFairnessService's score for the pair, at creation time
 }
