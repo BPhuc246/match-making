@@ -34,7 +34,9 @@ function ensureConnected() {
 
   client = new Client({
     webSocketFactory: () =>
-      new SockJS("http://localhost:8000/api/ws", null, { transports: ["websocket"] }),
+      new SockJS("/api/ws", null, {
+        transports: ["websocket"],
+      }),
     reconnectDelay: 3000,
     onConnect: resubscribeAll,
   });
@@ -53,9 +55,11 @@ export function unsubscribeFromMatchmaking() {
   matchmakingCallback = null;
 }
 
-export function subscribeToRoundUpdates(onUpdate: (payload: MatchStateResponse) => void) {
+export function subscribeToRoundUpdates(
+  onUpdate: (payload: MatchStateResponse) => void,
+) {
   roundCallback = onUpdate;
-  ensureConnected(); 
+  ensureConnected();
 }
 
 export function unsubscribeFromRoundUpdates() {

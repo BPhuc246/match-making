@@ -28,7 +28,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setHandshakeHandler(handshakeHandler)
                 .addInterceptors(handshakeInterceptor)
-                .setAllowedOriginPatterns("http://localhost:5173") // match your FRONTEND_URL exactly, not "*"
+                .setAllowedOriginPatterns("http://localhost:8081") // match your FRONTEND_URL exactly, not "*"
                 .withSockJS();
     }
 }

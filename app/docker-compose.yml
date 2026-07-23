@@ -1,0 +1,69 @@
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - postgres_data_match_making:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - match-making-net
+
+  backend:
+    build: ./server
+    container_name: server
+    restart: always
+    env_file:
+      - ./server/.env
+    expose:
+      - "8080"
+    networks:
+      - match-making-net
+
+  frontend:
+    build:
+      context: ./client
+      # args:
+      #   VITE_BACKEND_URL: "/api"
+    container_name: client
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - match-making-net
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    ports:
+      - "8081:80"
+      - "8443:443"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - match-making-net
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    networks:
+      - match-making-net
+
+volumes:
+  postgres_data_match_making:
+    name: postgres_data_match_making
+
+networks:
+  match-making-net:
+    driver: bridge

@@ -35,27 +35,37 @@ export default function AuthPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (
       !formData.email.trim() ||
       !formData.password.trim() ||
       (!formData.username.trim() && !isLoginTab)
     ) {
-      toast.error("All fields are requried");
+      toast.error("All fields are required");
       return;
-    } else if (
+    }
+
+    if (
       (formData.username.trim().length < 4 ||
         formData.username.trim().length > 20) &&
       !isLoginTab
     ) {
       toast.error("Username length range from 4 to 20");
       return;
-    } else if (formData.password.trim().length < 6) {
+    }
+
+    if (formData.password.trim().length < 6) {
       toast.error("Password length should be at least 6");
       return;
     }
 
     if (isLoginTab) {
-      dispatch(login(formData))
+      dispatch(
+        login({
+          email: formData.email,
+          password: formData.password,
+        }),
+      )
         .unwrap()
         .then((loggedInUser) => {
           toast.success(
@@ -68,6 +78,7 @@ export default function AuthPage() {
               },
             },
           );
+
           navigate("/");
         });
     } else {
@@ -84,6 +95,7 @@ export default function AuthPage() {
               },
             },
           );
+
           navigate("/");
         });
     }
@@ -206,6 +218,7 @@ export default function AuthPage() {
             )}
 
             <button
+              type="button"
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
               onClick={() => setIsLoginTab(!isLoginTab)}
             >

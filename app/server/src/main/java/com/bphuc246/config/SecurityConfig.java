@@ -38,12 +38,18 @@ public class SecurityConfig {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-    private final String[] PUBLIC_ENDPOINTS = { "/auth/login",
+    private final String[] PUBLIC_ENDPOINTS = {
+        "/auth/login",
         "/auth/register",
-        "/auth/refresh", "/auth/logout", "/ws/**" };
+        "/auth/refresh",
+        "/auth/logout",
+        "/ws/**"
+    };
     
-    private final String[] AUTHENTICATD_ENDPOINTS = {
-        "/user/**", "/match/**", "/queue_entry/**"
+    private final String[] AUTHENTICATED_ENDPOINTS = {
+        "/user/**",
+        "/match/**",
+        "/queue_entry/**"
     };
 
     @Bean
@@ -66,7 +72,7 @@ public class SecurityConfig {
                 request
                     .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                     .requestMatchers("/admin/**").hasRole("ADMIN")
-                    .requestMatchers(AUTHENTICATD_ENDPOINTS).authenticated()
+                    .requestMatchers(AUTHENTICATED_ENDPOINTS).authenticated()
                     .anyRequest().authenticated())
             .csrf(csrf -> csrf.disable());
 

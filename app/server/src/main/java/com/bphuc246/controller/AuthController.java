@@ -81,7 +81,7 @@ public class AuthController {
         return ApiResponse.<AuthResponse>builder().result(result).build();
     }
 
-    @PostMapping("/login")
+    @PostMapping("/login") // Uncategorized error
     ApiResponse<AuthResponse> login(@RequestBody LoginRequest data, HttpServletResponse response) {
         var result = this.authService.login(data);
         setAuthCookies(response, result);

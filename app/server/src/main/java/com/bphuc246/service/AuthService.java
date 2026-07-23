@@ -128,44 +128,54 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest data) {
-        if (
-            data.getEmail().isBlank() ||
-            data.getPassword().isBlank()
-        ) throw new AppException(ErrorCode.INVALID_INPUT);
-        else if (
-            !data.getEmail().endsWith("@gmail.com") &&
-            !data.getEmail().endsWith("@gm.uit.edu.vn")
-        ) throw new AppException(ErrorCode.INVALID_EMAIL);
-        else if (
-            data.getPassword().length() < 6
-        ) throw new RuntimeException("Password must be at least 6 characters");
 
-        PlayerEntity existingUser = userRepository.findByEmail(data.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+    if (data.getEmail() == null || data.getEmail().isBlank()
+            || data.getPassword() == null || data.getPassword().isBlank()) {
+        throw new AppException(ErrorCode.INVALID_INPUT);
+    }
 
-        if(existingUser == null) throw new AppException((ErrorCode.EMAIL_NOTFOUND));
+    if (!data.getEmail().endsWith("@gmail.com")
+            && !data.getEmail().endsWith("@gm.uit.edu.vn")) {
+        throw new AppException(ErrorCode.INVALID_EMAIL);
+    }
 
-        boolean authenticated = passwordEncoder.matches(
+    if (data.getPassword().length() < 6) {
+        throw new RuntimeException("Password must be at least 6 characters");
+    }
+
+    PlayerEntity existingUser = userRepository
+            .findByEmail(data.getEmail())
+            .orElseThrow(() -> new AppException(ErrorCode.EMAIL_NOTFOUND));
+
+    boolean authenticated = passwordEncoder.matches(
             data.getPassword(),
             existingUser.getPassword()
-        );
-        if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
+    );
 
-        var accessToken = generateToken(
+    if (!authenticated) {
+        throw new AppException(ErrorCode.UNAUTHENTICATED);
+    }
+
+    var accessToken = generateToken(
             existingUser,
             SPRING_SECRET_ACCESS_KEY,
             Long.parseLong(DURATION_TIME_ACCESS),
             ChronoUnit.valueOf(CHRONO_ACCESS)
-        );
+    );
 
-        var refreshToken = generateToken(
+    var refreshToken = generateToken(
             existingUser,
             SPRING_SECRET_REFRESH_KEY,
             Long.parseLong(DURATION_TIME_REFRESH),
             ChronoUnit.valueOf(CHRONO_REFRESH)
-        );
+    );
 
-        return AuthResponse.builder().accessToken(accessToken).refreshToken(refreshToken).authenticated(authenticated).build();
-    }
+    return AuthResponse.builder()
+            .accessToken(accessToken)
+            .refreshToken(refreshToken)
+            .authenticated(true)
+            .build();
+}
 
     public void logout(LogoutRequest request) throws ParseException, JOSEException {
         if (request.getAccessToken() == null || request.getAccessToken().isBlank())
