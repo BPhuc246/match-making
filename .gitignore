@@ -36,10 +36,10 @@ Thumbs.db
 
 # Terrform
 .terraform/
+variables.tf
 *.tfstate
 *.tfstate.*
 *.tfvars
-*.tfvars.json
 crash.log
 override.tf
 override.tf.json
@@ -47,8 +47,6 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
-.ssh/
-*.pub
 
 
 # Ansible - secrets & local files
