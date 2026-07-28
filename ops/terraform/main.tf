@@ -173,7 +173,7 @@ resource "azurerm_linux_virtual_machine" "main" { # create a virtual machine wit
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = file("~/.ssh/matchmaking.pub")
+    public_key = file("${path.module}/.ssh/matchmaking.pub")
   }
 
   network_interface_ids = [azurerm_network_interface.my_terraform_nic.id]
