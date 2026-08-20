@@ -70,6 +70,7 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) 
             .authorizeHttpRequests(request ->
                 request
+                    .requestMatchers("/health").permitAll()
                     .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                     .requestMatchers("/admin/**").hasRole("ADMIN")
                     .requestMatchers(AUTHENTICATED_ENDPOINTS).authenticated()
@@ -93,23 +94,3 @@ public class SecurityConfig {
         return source;
     }
 }
-
-
-/*
-
-
-adminThunk.ts:14 
- GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
-adminThunk.ts:14 
- GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
-axios.ts:34 
- GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
-axios.ts:45 
- GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
-axios.ts:45 
- GET http://localhost:8000/api/admin/matchmaking/calibration 401 (Unauthorized)
-﻿
-
-
-
-*/

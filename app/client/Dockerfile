@@ -1,21 +1,12 @@
-# Build stage
 FROM node:20-alpine AS build
-
 WORKDIR /match-making
-
-COPY package*.json ./
-
+COPY client/package*.json ./
 RUN npm ci
-
-COPY . .
-
+COPY client/. .
 RUN npm run build
 
-# Production stage
 FROM nginx:alpine
-
 COPY --from=build /match-making/dist /usr/share/nginx/html
-
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
